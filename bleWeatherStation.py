@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Connect to Oregon Scientific BLE Weather Station
 # Copyright (c) 2016 Arnaud Balmelle
@@ -20,8 +20,8 @@
 import sys
 import logging
 import time
-import sqlite3
-from bluepy.btle import *
+import binascii
+import bluepy.btle
 
 # uncomment the following line to get debug information
 logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.DEBUG)
@@ -33,10 +33,10 @@ class WeatherStation:
 	def __init__(self, mac):
 		self._data = {}
 		try:
-			self.p = Peripheral(mac, ADDR_TYPE_RANDOM)
-			self.p.setDelegate(NotificationDelegate())
+			self.p = bluepy.btle.Peripheral(mac, bluepy.btle.ADDR_TYPE_RANDOM)
+			self.p.withDelegate(NotificationDelegate())
 			logging.debug('WeatherStation connected !')
-		except BTLEException:
+		except bluepy.btle.BTLEDisconnectError:
 			self.p = 0
 			logging.debug('Connection to WeatherStation failed !')
 			raise
@@ -44,18 +44,19 @@ class WeatherStation:
 	def _enableNotification(self):
 		try:
 			# Enable all notification or indication
-			self.p.writeCharacteristic(0x000c, "\x02\x00")
-			self.p.writeCharacteristic(0x000f, "\x02\x00")
-			self.p.writeCharacteristic(0x0012, "\x02\x00")
-			self.p.writeCharacteristic(0x0015, "\x01\x00")
-			self.p.writeCharacteristic(0x0018, "\x02\x00")
-			self.p.writeCharacteristic(0x001b, "\x02\x00")
-			self.p.writeCharacteristic(0x001e, "\x02\x00")
-			self.p.writeCharacteristic(0x0021, "\x02\x00")
-			self.p.writeCharacteristic(0x0032, "\x01\x00")
+			self.p.writeCharacteristic(0x000c, b"\x02\x00")
+			self.p.writeCharacteristic(0x000f, b"\x02\x00")
+			self.p.writeCharacteristic(0x0012, b"\x02\x00")
+			self.p.writeCharacteristic(0x0015, b"\x01\x00")
+			self.p.writeCharacteristic(0x0018, b"\x02\x00")
+			self.p.writeCharacteristic(0x001b, b"\x02\x00")
+			self.p.writeCharacteristic(0x001e, b"\x02\x00")
+			self.p.writeCharacteristic(0x0021, b"\x02\x00")
+			self.p.writeCharacteristic(0x0032, b"\x01\x00")
 			logging.debug('Notifications enabled')
 		
-		except BTLEException as err:
+		except bluepy.btle.BTLEException as err:
+			logging.debug('Notification exception')
 			print(err)
 			self.p.disconnect()
 	
@@ -68,54 +69,55 @@ class WeatherStation:
 				# handleNotification() was called
 				continue
 			logging.debug('Notification timeout')
-		except:
+		except bluepy.btle.BTLEDisconnectError:
+			logging.debug('Error waiting for notifications from Weather Station')
 			return None
-		
+
+		def cvt(d, o):
+			return int.from_bytes(d[o:o+2], 'little', signed=True) / 10
 		regs = self.p.delegate.getData()
+		logging.debug(regs)
 		if regs is not None:
 			# expand INDOOR_AND_CH1_TO_3_TH_DATA_TYPE0
-			self._data['index0_temperature'] = ''.join(regs['data_type0'][4:6] + regs['data_type0'][2:4])
-			self._data['index1_temperature'] = ''.join(regs['data_type0'][8:10] + regs['data_type0'][6:8])
-			self._data['index2_temperature'] = ''.join(regs['data_type0'][12:14] + regs['data_type0'][10:12])
-			self._data['index3_temperature'] = ''.join(regs['data_type0'][16:18] + regs['data_type0'][14:16])
-			self._data['index0_humidity'] = regs['data_type0'][18:20]
-			self._data['index1_humidity'] = regs['data_type0'][20:22]
-			self._data['index2_humidity'] = regs['data_type0'][22:24]
-			self._data['index3_humidity'] = regs['data_type0'][24:26]
-			self._data['temperature_trend'] = regs['data_type0'][26:28]
-			self._data['humidity_trend'] = regs['data_type0'][28:30]
-			self._data['index0_humidity_max'] = regs['data_type0'][30:32]
-			self._data['index0_humidity_min'] = regs['data_type0'][32:34]
-			self._data['index1_humidity_max'] = regs['data_type0'][34:36]
-			self._data['index1_humidity_min'] = regs['data_type0'][36:38]
-			self._data['index2_humidity_max'] = regs['data_type0'][38:40]
+			self._data['index0_temperature'] = cvt(regs[0], 1)
+			self._data['index1_temperature'] = cvt(regs[0], 3)
+			self._data['index2_temperature'] = cvt(regs[0], 5)
+			self._data['index3_temperature'] = cvt(regs[0], 7)
+
+			self._data['index0_humidity'] = regs[0][9]
+			self._data['index1_humidity'] = regs[0][10]
+			self._data['index2_humidity'] = regs[0][11]
+			self._data['index3_humidity'] = regs[0][12]
+			self._data['temperature_trend'] = regs[0][13] # always 255
+			logging.debug('temp trend = %d' % regs[0][13])
+			self._data['humidity_trend'] = regs[0][14] # always 255
+			logging.debug('humidity trend = %d' % regs[0][14])
+			self._data['index0_humidity_max'] = regs[0][15]
+			self._data['index0_humidity_min'] = regs[0][16]
+			self._data['index1_humidity_max'] = regs[0][17]
+			self._data['index1_humidity_min'] = regs[0][18]
+			self._data['index2_humidity_max'] = regs[0][19]
 			# expand INDOOR_AND_CH1_TO_3_TH_DATA_TYPE1
-			self._data['index2_humidity_min'] = regs['data_type1'][2:4]
-			self._data['index3_humidity_max'] = regs['data_type1'][4:6]
-			self._data['index3_humidity_min'] = regs['data_type1'][6:8]
-			self._data['index0_temperature_max'] = ''.join(regs['data_type1'][10:12] + regs['data_type1'][8:10])
-			self._data['index0_temperature_min'] = ''.join(regs['data_type1'][14:16] + regs['data_type1'][12:14])
-			self._data['index1_temperature_max'] = ''.join(regs['data_type1'][18:20] + regs['data_type1'][16:18])
-			self._data['index1_temperature_min'] = ''.join(regs['data_type1'][22:24] + regs['data_type1'][20:22])
-			self._data['index2_temperature_max'] = ''.join(regs['data_type1'][26:28] + regs['data_type1'][24:26])
-			self._data['index2_temperature_min'] = ''.join(regs['data_type1'][30:32] + regs['data_type1'][28:30])
-			self._data['index3_temperature_max'] = ''.join(regs['data_type1'][34:36] + regs['data_type1'][32:34])
-			self._data['index3_temperature_min'] = ''.join(regs['data_type1'][38:40] + regs['data_type1'][36:38])
+			self._data['index2_humidity_min'] = regs[1][1]
+			self._data['index3_humidity_max'] = regs[1][2]
+			self._data['index3_humidity_min'] = regs[1][3]
+			self._data['index0_temperature_max'] = cvt(regs[1], 4)
+			self._data['index0_temperature_min'] = cvt(regs[1], 6)
+			self._data['index1_temperature_max'] = cvt(regs[1], 8)
+			self._data['index1_temperature_min'] = cvt(regs[1], 10)
+			self._data['index2_temperature_max'] = cvt(regs[1], 12)
+			self._data['index2_temperature_min'] = cvt(regs[1], 14)
+			self._data['index3_temperature_max'] = cvt(regs[1], 16)
+			self._data['index3_temperature_min'] = cvt(regs[1], 18)
 			return True
 		else:
 			return None
 			
-	def getValue(self, indexstr):
-		val = int(self._data[indexstr], 16)
-		if val >= 0x8000:
-			val = ((val + 0x8000) & 0xFFFF) - 0x8000
-		return val
-	
 	def getIndoorTemp(self):
 		if 'index0_temperature' in self._data:
-			temp = self.getValue('index0_temperature') / 10.0
-			max = self.getValue('index0_temperature_max') / 10.0
-			min = self.getValue('index0_temperature_min') / 10.0
+			temp = self._data['index0_temperature']
+			max = self._data['index0_temperature_max']
+			min = self._data['index0_temperature_min']
 			logging.debug('Indoor temp : %.1f°C, max : %.1f°C, min : %.1f°C', temp, max, min)
 			return temp
 		else:
@@ -123,9 +125,9 @@ class WeatherStation:
 	
 	def getOutdoorTemp(self, num=1):
 		if ('index%d_temperature' % num) in self._data:
-			temp = self.getValue('index%d_temperature' % num) / 10.0
-			max = self.getValue('index%d_temperature_max' % num) / 10.0
-			min = self.getValue('index%d_temperature_min' % num) / 10.0
+			temp = self._data['index%d_temperature' % num]
+			max = self._data['index%d_temperature_max' % num]
+			min = self._data['index%d_temperature_min' % num]
 			logging.debug('Outdoor temp %d : %.1f°C, max : %.1f°C, min : %.1f°C', num, temp, max, min)
 			return temp
 		else:
@@ -134,38 +136,39 @@ class WeatherStation:
 	def disconnect(self):
 		self.p.disconnect()
 		
-class NotificationDelegate(DefaultDelegate):
+class NotificationDelegate(bluepy.btle.DefaultDelegate):
 	def __init__(self):
-		DefaultDelegate.__init__(self)
+		super().__init__()
 		self._indoorAndOutdoorTemp_type0 = None
 		self._indoorAndOutdoorTemp_type1 = None
 		
 	def handleNotification(self, cHandle, data):
-		formatedData = binascii.b2a_hex(data)
 		if cHandle == 0x0017:
 			# indoorAndOutdoorTemp indication received
-			if formatedData[0] == '8':
-				# Type1 data packet received
-				self._indoorAndOutdoorTemp_type1 = formatedData
-				logging.debug('indoorAndOutdoorTemp_type1 = %s', formatedData)
-			else:
+			if data[0] & 0x80 == 0x00:
 				# Type0 data packet received
-				self._indoorAndOutdoorTemp_type0 = formatedData
-				logging.debug('indoorAndOutdoorTemp_type0 = %s', formatedData)
+				self._indoorAndOutdoorTemp_type0 = data
+				logging.debug('indoorAndOutdoorTemp_type0 = %s', binascii.b2a_hex(data))
+			elif data[0] & 0x80 == 0x80:
+				# Type1 data packet received
+				self._indoorAndOutdoorTemp_type1 = data
+				logging.debug('indoorAndOutdoorTemp_type1 = %s', binascii.b2a_hex(data))
+			else:
+				logging.debug('got an unknown cHandle 0x0017 packet')
 		else:
 			# skip other indications/notifications
-			logging.debug('handle %x = %s', cHandle, formatedData)
+			logging.debug('handle %x = %s', cHandle, binascii.b2a_hex(data))
 	
 	def getData(self):
 			if self._indoorAndOutdoorTemp_type0 is not None:
 				# return sensors data
-				return {'data_type0':self._indoorAndOutdoorTemp_type0, 'data_type1':self._indoorAndOutdoorTemp_type1}
+				return [self._indoorAndOutdoorTemp_type0, self._indoorAndOutdoorTemp_type1]
 			else:
 				return None
 
-class ScanDelegate(DefaultDelegate):
+class ScanDelegate(bluepy.btle.DefaultDelegate):
 	def __init__(self):
-		DefaultDelegate.__init__(self)
+		super().__init__()
 		
 	def handleDiscovery(self, dev, isNewDev, isNewData):
 		global weatherStationMacAddr
@@ -182,9 +185,9 @@ if __name__=="__main__":
 		# No MAC address passed as argument
 		try:
 			# Scanning to see if Weather Station in range
-			scanner = Scanner().withDelegate(ScanDelegate())
+			scanner = bluepy.btle.Scanner().withDelegate(ScanDelegate())
 			devices = scanner.scan(2.0)
-		except BTLEException as err:
+		except bluepy.btle.BTLEException as err:
 			print(err)
 			print('Scanning requires root privilege, so do not forget to run the script with sudo.')
 	else:
@@ -198,6 +201,11 @@ if __name__=="__main__":
 			# Attempting to connect to device with MAC address "weatherStationMacAddr"
 			weatherStation = WeatherStation(weatherStationMacAddr)
 			
+		except bluepy.btle.BTLEDisconnectError:
+			logging.debug('Abort')
+			exit(0)
+
+		try:
 			if weatherStation.monitorWeatherStation() is not None:
 				# WeatherStation data received
 				indoor = weatherStation.getIndoorTemp()
@@ -205,8 +213,8 @@ if __name__=="__main__":
 					outdoor = weatherStation.getOutdoorTemp(num)
 			else:
 				logging.debug('No data received from WeatherStation')
+		except Exception as e:
+			logging.debug("There was an exception --", e)
 			
-			weatherStation.disconnect()
-		
-		except KeyboardInterrupt:
-			logging.debug('Program stopped by user')
+		weatherStation.disconnect()
+		logging.debug('Disconnected from Weather Station - DONE.')
