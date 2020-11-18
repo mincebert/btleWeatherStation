@@ -26,6 +26,7 @@ from bluepy.btle import *
 # uncomment the following line to get debug information
 logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.DEBUG)
 
+#WEATHERSTATION_NAME = "IDTW211R" # IDTW211R for EMR211
 WEATHERSTATION_NAME = "IDTW213R" # IDTW213R for RAR218HG
 
 class WeatherStation:
@@ -170,7 +171,7 @@ class ScanDelegate(DefaultDelegate):
 		global weatherStationMacAddr
 		if dev.getValueText(9) == WEATHERSTATION_NAME:
 			# Weather Station in range, saving Mac address for future connection
-			logging.debug('WeatherStation found')
+			logging.debug('WeatherStation found: %s' % dev.addr)
 			weatherStationMacAddr = dev.addr
 
 if __name__=="__main__":
@@ -185,7 +186,7 @@ if __name__=="__main__":
 			devices = scanner.scan(2.0)
 		except BTLEException as err:
 			print(err)
-			print('Scanning required root privilege, so do not forget to run the script with sudo.')
+			print('Scanning requires root privilege, so do not forget to run the script with sudo.')
 	else:
 		# Weather Station MAC address passed as argument, will attempt to connect with this address
 		weatherStationMacAddr = sys.argv[1]
