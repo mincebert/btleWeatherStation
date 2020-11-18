@@ -26,7 +26,7 @@ from bluepy.btle import *
 # uncomment the following line to get debug information
 logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.DEBUG)
 
-WEATHERSTATION_NAME = "IDTW211R" # IDTW213R for RAR218HG
+WEATHERSTATION_NAME = "IDTW213R" # IDTW213R for RAR218HG
 
 class WeatherStation:
 	def __init__(self, mac):
@@ -120,12 +120,12 @@ class WeatherStation:
 		else:
 			return None
 	
-	def getOutdoorTemp(self):
-		if 'index1_temperature' in self._data:
-			temp = self.getValue('index1_temperature') / 10.0
-			max = self.getValue('index1_temperature_max') / 10.0
-			min = self.getValue('index1_temperature_min') / 10.0
-			logging.debug('Outdoor temp : %.1f°C, max : %.1f°C, min : %.1f°C', temp, max, min)
+	def getOutdoorTemp(self, num=1):
+		if ('index%d_temperature' % num) in self._data:
+			temp = self.getValue('index%d_temperature' % num) / 10.0
+			max = self.getValue('index%d_temperature_max' % num) / 10.0
+			min = self.getValue('index%d_temperature_min' % num) / 10.0
+			logging.debug('Outdoor temp %d : %.1f°C, max : %.1f°C, min : %.1f°C', num, temp, max, min)
 			return temp
 		else:
 			return None
@@ -200,7 +200,8 @@ if __name__=="__main__":
 			if weatherStation.monitorWeatherStation() is not None:
 				# WeatherStation data received
 				indoor = weatherStation.getIndoorTemp()
-				outdoor = weatherStation.getOutdoorTemp()
+				for num in range(1, 6):
+					outdoor = weatherStation.getOutdoorTemp(num)
 			else:
 				logging.debug('No data received from WeatherStation')
 			
