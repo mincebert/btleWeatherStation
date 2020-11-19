@@ -73,25 +73,26 @@ class WeatherStation:
             logging.debug('Error waiting for notifications from Weather Station')
             return None
 
+        # a lot of the data is two bytes, little-endian, signed, multiplied
+        # by 10 (to eliminate the need for a decimal point) so we have a
+        # function to do this repeatedly
         def cvt(d, o):
             return int.from_bytes(d[o:o+2], 'little', signed=True) / 10
+
         regs = self.p.delegate.getData()
-        logging.debug(regs)
+
         if regs is not None:
             # expand INDOOR_AND_CH1_TO_3_TH_DATA_TYPE0
             self._data['index0_temperature'] = cvt(regs[0], 1)
             self._data['index1_temperature'] = cvt(regs[0], 3)
             self._data['index2_temperature'] = cvt(regs[0], 5)
             self._data['index3_temperature'] = cvt(regs[0], 7)
-
             self._data['index0_humidity'] = regs[0][9]
             self._data['index1_humidity'] = regs[0][10]
             self._data['index2_humidity'] = regs[0][11]
             self._data['index3_humidity'] = regs[0][12]
-            self._data['temperature_trend'] = regs[0][13] # always 255
-            logging.debug('temp trend = %d' % regs[0][13])
-            self._data['humidity_trend'] = regs[0][14] # always 255
-            logging.debug('humidity trend = %d' % regs[0][14])
+            self._data['temperature_trend'] = regs[0][13] # always 255?
+            self._data['humidity_trend'] = regs[0][14] # always 255?
             self._data['index0_humidity_max'] = regs[0][15]
             self._data['index0_humidity_min'] = regs[0][16]
             self._data['index1_humidity_max'] = regs[0][17]
@@ -209,12 +210,13 @@ if __name__=="__main__":
             if weatherStation.monitorWeatherStation() is not None:
                 # WeatherStation data received
                 indoor = weatherStation.getIndoorTemp()
-                for num in range(1, 6):
+                for num in range(1, 4):
                     outdoor = weatherStation.getOutdoorTemp(num)
             else:
                 logging.debug('No data received from WeatherStation')
         except Exception as e:
             logging.debug("There was an exception --", e)
 
+        # always disconnect otherwise the station Bluetooth locks up
         weatherStation.disconnect()
         logging.debug('Disconnected from Weather Station - DONE.')
