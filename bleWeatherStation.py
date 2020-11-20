@@ -81,54 +81,37 @@ class WeatherStation:
 
         regs = self.p.delegate.getData()
 
+        # bug from weather station: humidity 2 max is always 0xff
         if regs is not None:
-            # expand INDOOR_AND_CH1_TO_3_TH_DATA_TYPE0
-            self._data['index0_temperature'] = cvt(regs[0], 1)
-            self._data['index1_temperature'] = cvt(regs[0], 3)
-            self._data['index2_temperature'] = cvt(regs[0], 5)
-            self._data['index3_temperature'] = cvt(regs[0], 7)
-            self._data['index0_humidity'] = regs[0][9]
-            self._data['index1_humidity'] = regs[0][10]
-            self._data['index2_humidity'] = regs[0][11]
-            self._data['index3_humidity'] = regs[0][12]
-            self._data['temperature_trend'] = regs[0][13] # always 255?
-            self._data['humidity_trend'] = regs[0][14] # always 255?
-            self._data['index0_humidity_max'] = regs[0][15]
-            self._data['index0_humidity_min'] = regs[0][16]
-            self._data['index1_humidity_max'] = regs[0][17]
-            self._data['index1_humidity_min'] = regs[0][18]
-            self._data['index2_humidity_max'] = regs[0][19]
-            # expand INDOOR_AND_CH1_TO_3_TH_DATA_TYPE1
-            self._data['index2_humidity_min'] = regs[1][1]
-            self._data['index3_humidity_max'] = regs[1][2]
-            self._data['index3_humidity_min'] = regs[1][3]
-            self._data['index0_temperature_max'] = cvt(regs[1], 4)
-            self._data['index0_temperature_min'] = cvt(regs[1], 6)
-            self._data['index1_temperature_max'] = cvt(regs[1], 8)
-            self._data['index1_temperature_min'] = cvt(regs[1], 10)
-            self._data['index2_temperature_max'] = cvt(regs[1], 12)
-            self._data['index2_temperature_min'] = cvt(regs[1], 14)
-            self._data['index3_temperature_max'] = cvt(regs[1], 16)
-            self._data['index3_temperature_min'] = cvt(regs[1], 18)
+            for s in range(0, 4):
+                self._data[s] = {
+                    "temperature": cvt(regs, s*2),
+                    "temperature_min": cvt(regs, 18 + 6 + s*4),
+                    "temperature_max": cvt(regs, 18 + 4 + s*4),
+                    "humidity": regs[8 + s],
+                    "humidity_min": regs[15 + s*2],
+                    "humidity_max": regs[14 + s*2],
+                }
+
             return True
         else:
             return None
 
     def getIndoorTemp(self):
-        if 'index0_temperature' in self._data:
-            temp = self._data['index0_temperature']
-            max = self._data['index0_temperature_max']
-            min = self._data['index0_temperature_min']
+        if 0 in self._data:
+            temp = self._data[0]["temperature"]
+            min = self._data[0]["temperature_min"]
+            max = self._data[0]["temperature_max"]
             logging.debug('Indoor temp : %.1f°C, max : %.1f°C, min : %.1f°C', temp, max, min)
             return temp
         else:
             return None
 
     def getOutdoorTemp(self, num=1):
-        if ('index%d_temperature' % num) in self._data:
-            temp = self._data['index%d_temperature' % num]
-            max = self._data['index%d_temperature_max' % num]
-            min = self._data['index%d_temperature_min' % num]
+        if num in self._data:
+            temp = self._data[num]["temperature"]
+            min = self._data[num]["temperature_min"]
+            max = self._data[num]["temperature_max"]
             logging.debug('Outdoor temp %d : %.1f°C, max : %.1f°C, min : %.1f°C', num, temp, max, min)
             return temp
         else:
@@ -148,11 +131,11 @@ class NotificationDelegate(bluepy.btle.DefaultDelegate):
             # indoorAndOutdoorTemp indication received
             if data[0] & 0x80 == 0x00:
                 # Type0 data packet received
-                self._indoorAndOutdoorTemp_type0 = data
+                self._indoorAndOutdoorTemp_type0 = data[1:]
                 logging.debug('indoorAndOutdoorTemp_type0 = %s', binascii.b2a_hex(data))
             elif data[0] & 0x80 == 0x80:
                 # Type1 data packet received
-                self._indoorAndOutdoorTemp_type1 = data
+                self._indoorAndOutdoorTemp_type1 = data[1:]
                 logging.debug('indoorAndOutdoorTemp_type1 = %s', binascii.b2a_hex(data))
             else:
                 logging.debug('got an unknown cHandle 0x0017 packet')
@@ -163,7 +146,7 @@ class NotificationDelegate(bluepy.btle.DefaultDelegate):
     def getData(self):
             if self._indoorAndOutdoorTemp_type0 is not None:
                 # return sensors data
-                return [self._indoorAndOutdoorTemp_type0, self._indoorAndOutdoorTemp_type1]
+                return self._indoorAndOutdoorTemp_type0 + self._indoorAndOutdoorTemp_type1
             else:
                 return None
 
