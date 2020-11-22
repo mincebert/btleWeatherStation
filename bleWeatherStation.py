@@ -76,8 +76,20 @@ class WeatherStation:
         # a lot of the data is two bytes, little-endian, signed, multiplied
         # by 10 (to eliminate the need for a decimal point) so we have a
         # function to do this repeatedly
-        def cvt(d, o):
+        def readTemp(d, o):
+            # missing temperatures have 0x7f in the most significant byte
+            if d[o + 1] == 0x7f:
+                return None
+
             return int.from_bytes(d[o:o+2], 'little', signed=True) / 10
+
+        def readHumidity(d, o):
+            # missing humidity is 0x7f as the value but anything over 100 is
+            # wrong
+            if d[o] >= 100:
+                return None
+
+            return d[o]
 
         self._datetime = self.p.delegate.getDateTime()
         if self._datetime:
@@ -89,12 +101,12 @@ class WeatherStation:
         if regs is not None:
             for s in range(0, 4):
                 self._data[s] = {
-                    "temperature": cvt(regs, s*2),
-                    "temperature_min": cvt(regs, 18 + 6 + s*4),
-                    "temperature_max": cvt(regs, 18 + 4 + s*4),
-                    "humidity": regs[8 + s],
-                    "humidity_min": regs[15 + s*2],
-                    "humidity_max": regs[14 + s*2],
+                    "temperature": readTemp(regs, s*2),
+                    "temperature_min": readTemp(regs, 18 + 6 + s*4),
+                    "temperature_max": readTemp(regs, 18 + 4 + s*4),
+                    "humidity": readHumidity(regs, 8 + s),
+                    "humidity_min": readHumidity(regs, 15 + s*2),
+                    "humidity_max": readHumidity(regs, 14 + s*2),
                 }
 
             return True
@@ -106,6 +118,9 @@ class WeatherStation:
             temp = self._data[0]["temperature"]
             min = self._data[0]["temperature_min"]
             max = self._data[0]["temperature_max"]
+            if temp is None:
+                logging.debug('Indoor temp : unavailable')
+                return None
             logging.debug('Indoor temp : %.1f°C, max : %.1f°C, min : %.1f°C', temp, max, min)
             return temp
         else:
@@ -116,6 +131,9 @@ class WeatherStation:
             temp = self._data[num]["temperature"]
             min = self._data[num]["temperature_min"]
             max = self._data[num]["temperature_max"]
+            if temp is None:
+                logging.debug('Outdoor temp %d : unavailable' % num)
+                return None
             logging.debug('Outdoor temp %d : %.1f°C, max : %.1f°C, min : %.1f°C', num, temp, max, min)
             return temp
         else:
