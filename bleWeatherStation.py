@@ -19,7 +19,7 @@
 
 import sys
 import logging
-import time
+import datetime
 import binascii
 import bluepy.btle
 
@@ -79,6 +79,10 @@ class WeatherStation:
         def cvt(d, o):
             return int.from_bytes(d[o:o+2], 'little', signed=True) / 10
 
+        self._datetime = self.p.delegate.getDateTime()
+        if self._datetime:
+            logging.debug('DateTime on Weather Station = %s' % self._datetime)
+
         regs = self.p.delegate.getData()
 
         # bug from weather station: humidity 2 max is always 0xff
@@ -125,6 +129,7 @@ class NotificationDelegate(bluepy.btle.DefaultDelegate):
         super().__init__()
         self._indoorAndOutdoorTemp_type0 = None
         self._indoorAndOutdoorTemp_type1 = None
+        self._datetime = None
 
     def handleNotification(self, cHandle, data):
         if cHandle == 0x0017:
@@ -139,16 +144,22 @@ class NotificationDelegate(bluepy.btle.DefaultDelegate):
                 logging.debug('indoorAndOutdoorTemp_type1 = %s', binascii.b2a_hex(data))
             else:
                 logging.debug('got an unknown cHandle 0x0017 packet')
+        elif cHandle == 0x001d:
+            self._datetime = datetime.datetime(
+                2000 + data[1], data[2], data[3], data[4], data[5], data[6])
         else:
             # skip other indications/notifications
             logging.debug('handle %x = %s', cHandle, binascii.b2a_hex(data))
 
     def getData(self):
-            if self._indoorAndOutdoorTemp_type0 is not None:
-                # return sensors data
-                return self._indoorAndOutdoorTemp_type0 + self._indoorAndOutdoorTemp_type1
-            else:
-                return None
+        if self._indoorAndOutdoorTemp_type0 is not None:
+            # return sensors data
+            return self._indoorAndOutdoorTemp_type0 + self._indoorAndOutdoorTemp_type1
+        else:
+            return None
+
+    def getDateTime(self):
+        return self._datetime
 
 class ScanDelegate(bluepy.btle.DefaultDelegate):
     def __init__(self):
