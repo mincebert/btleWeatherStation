@@ -7,4 +7,4 @@ from .scan import scan
 
 
 
-__version__ = "0.1"
+__version__ = "2.1"
