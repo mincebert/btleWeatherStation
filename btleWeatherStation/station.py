@@ -1,6 +1,10 @@
 # btleWeatherStation.station
 
 
+"""Connect and retrieve data from weather stations.
+"""
+
+
 
 from datetime import datetime
 import logging

@@ -1,6 +1,10 @@
 # btleWeatherStation.scan
 
 
+"""Scan for weather stations.
+"""
+
+
 
 import logging
 
