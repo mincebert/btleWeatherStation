@@ -214,24 +214,21 @@ class WeatherStation(object):
         d -- the system data block
         """
 
+
         return datetime(
                    year=2000 + d[1], month=d[2], day=d[3],
                    hour=d[4], minute=d[5], second=d[6])
 
 
-    def measure(self):
-        """Connect to the weather station, retrieve the current weather
-        sensor data, disconnect and decode it, storing it in the
-        object.
+    def _get_data(self):
+        """This method gets the current data from the weather station,
+        disconnects and returns it as a tuple of (system_data,
+        sensor_data).
 
-        Data includes the temperature and humidity of all the sensors,
-        included stored minima and maxima, as well as the current clock
-        time.
-
-        If no data was received, an WeatherStationNoDataError exception
-        is raised.
+        If there was a problem retrieving part of the data, that part
+        will be returned as None; if both parts are unavailable, a
+        tuple of (None, None) will be returned.
         """
-
 
         # try to connect and enable notifications
 
@@ -254,10 +251,91 @@ class WeatherStation(object):
 
         # get the data retrieved via the notifications and disconnect
 
-        sensor_data = self._station.delegate.getSensorData()
         system_data = self._station.delegate.getSystemData()
+        sensor_data = self._station.delegate.getSensorData()
 
         self._disconnect()
+
+        return system_data, sensor_data
+
+
+    def get_raw_system_data(self):
+        """Connect to the weather station, read the current data and
+        disconnect.  Then return the raw sensor data block as an array
+        of bytes.
+
+        The bytes at the positions below have the stated meaning:
+
+        00    = unknown
+        01    = clock: year - 2000
+        02    = clock: month
+        03    = clock: day of month
+        04    = clock: hour
+        05    = clock: minute
+        06    = clock: second
+        07    = unknown (always seems to be 0xff)
+        08-11 = unknown (vary)
+        12-19 = unknown (always seem to be 0xff)
+        """
+
+        return self._get_data()[0]
+
+
+    def get_raw_sensor_data(self):
+        """Connect to the weather station, read the current data and
+        disconnect.  Then return the raw sensor data block as an array
+        of bytes.
+
+        The bytes at the positions below have the stated meaning:
+
+        00-01 = sensor 0 (internal): temperature - current
+        02-03 = sensor 1: temperature - current
+        04-05 = sensor 1: temperature - current
+        06-07 = sensor 1: temperature - current
+        08    = sensor 0: humidity - current
+        09    = sensor 1: humidity - current
+        10    = sensor 2: humidity - current
+        11    = sensor 3: humidity - current
+        12-13 = unknown: always seem to be 0xff
+        14    = sensor 0: humidity - maximum
+        15    = sensor 0: humidity - minimum
+        16    = sensor 1: humidity - maximum
+        17    = sensor 1: humidity - minimum
+        18    = sensor 2: humidity - maximum (seems to be 0xff)
+        19    = sensor 2: humidity - minimum
+        20    = sensor 3: humidity - maximum
+        21    = sensor 3: humidity - minimum
+        22-23 = sensor 0: temperature - maximum
+        24-25 = sensor 0: temperature - minimum
+        26-27 = sensor 1: temperature - maxumum
+        28-29 = sensor 1: temperature - minimum
+        30-31 = sensor 2: temperature - maxumum
+        32-33 = sensor 2: temperature - minimum
+        34-35 = sensor 3: temperature - maxumum
+        36-37 = sensor 3: temperature - minimum
+        """
+
+        return self._get_data()[1]
+
+
+    def measure(self):
+        """Connect to the weather station, retrieve the current weather
+        sensor data, disconnect and decode it, storing it in the
+        object.
+
+        Data includes the temperature and humidity of all the sensors,
+        included stored minima and maxima, as well as the current clock
+        time.
+
+        If no data was received, an WeatherStationNoDataError exception
+        is raised.
+        """
+
+
+        # connect to the weather station, read the current data and
+        # disconnect
+
+        system_data, sensor_data = self._get_data()
 
 
         # decode and store the date and time using the system data
