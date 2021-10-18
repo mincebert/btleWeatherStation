@@ -15,6 +15,21 @@ from time import sleep
 
 
 
+# --- constants ---
+
+
+
+# _<type>_HANDLE = (16-bit int)
+#
+# These are the handles giving the types of notifications received from
+# the weather station, identifying the different data.
+
+SENSORS_HANDLE = 0x0017
+CLOCK_HANDLE = 0x001d
+STATUS_HANDLE = 0x000e
+
+
+
 # --- exceptions ---
 
 
@@ -206,87 +221,37 @@ class WeatherStation(object):
 
 
     def _decode_clock(self, d):
-        """Decode the weather station clock from the system data.
+        """Decode the weather station clock from the supplied clock
+        data block of bytes.
 
-        There is always a clock time present - it's just incorrect, if
-        not set.
+        The bytes at the positions below have the following meaning:
 
-        d -- the system data block
+        00    = clock: year - 2000
+        01    = clock: month
+        02    = clock: day of month
+        03    = clock: hour
+        04    = clock: minute
+        05    = clock: second
+        06    = unknown (always seems to be 0xff)
+        07-10 = unknown (vary)
+        11-18 = unknown (always seem to be 0xff)
+
+        Note: there is always a clock time present - it's just
+        incorrect, if not set.
+
+        d -- the clock notification packet bytes (minus first byte)
         """
-
 
         return datetime(
-                   year=2000 + d[1], month=d[2], day=d[3],
-                   hour=d[4], minute=d[5], second=d[6])
+                   year=2000 + d[0], month=d[1], day=d[2],
+                   hour=d[3], minute=d[4], second=d[5])
 
 
-    def _get_data(self):
-        """This method gets the current data from the weather station,
-        disconnects and returns it as a tuple of (system_data,
-        sensor_data).
+    def _decode_sensors(self, d):
+        """Decode the data from the sensors given the sensors
+        notification packet bytes.
 
-        If there was a problem retrieving part of the data, that part
-        will be returned as None; if both parts are unavailable, a
-        tuple of (None, None) will be returned.
-        """
-
-        # try to connect and enable notifications
-
-        self._connect()
-        self._enable_notifications()
-
-
-        # loop, waiting for and handling notifications, with a 1.0s
-        # timeout - if no notification is received in that time, we
-        # assume we're done
-
-        while self._station.waitForNotifications(1.0):
-            # _WeatherStationDelegate.handleNotification() will be
-            # callbacked here, as they come come in
-            continue
-
-
-        logging.debug("notifications complete or timed out")
-
-
-        # get the data retrieved via the notifications and disconnect
-
-        system_data = self._station.delegate.getSystemData()
-        sensor_data = self._station.delegate.getSensorData()
-
-        self._disconnect()
-
-        return system_data, sensor_data
-
-
-    def get_raw_system_data(self):
-        """Connect to the weather station, read the current data and
-        disconnect.  Then return the raw sensor data block as an array
-        of bytes.
-
-        The bytes at the positions below have the stated meaning:
-
-        00    = unknown
-        01    = clock: year - 2000
-        02    = clock: month
-        03    = clock: day of month
-        04    = clock: hour
-        05    = clock: minute
-        06    = clock: second
-        07    = unknown (always seems to be 0xff)
-        08-11 = unknown (vary)
-        12-19 = unknown (always seem to be 0xff)
-        """
-
-        return self._get_data()[0]
-
-
-    def get_raw_sensor_data(self):
-        """Connect to the weather station, read the current data and
-        disconnect.  Then return the raw sensor data block as an array
-        of bytes.
-
-        The bytes at the positions below have the stated meaning:
+        The bytes at the positions below have the followingmeaning:
 
         00-01 = sensor 0 (internal): temperature - current
         02-03 = sensor 1: temperature - current
@@ -313,9 +278,77 @@ class WeatherStation(object):
         32-33 = sensor 2: temperature - minimum
         34-35 = sensor 3: temperature - maxumum
         36-37 = sensor 3: temperature - minimum
+
+        d -- the sensors notification packet bytes (minus first byte)
         """
 
-        return self._get_data()[1]
+        sensors = {}
+
+        for n in range(0, 4):
+            sensor = {
+                "temp": {
+                    "current": self._decode_temp(d, n*2),
+                    "min"    : self._decode_temp(d, 24 + n*4),
+                    "max"    : self._decode_temp(d, 22 + n*4), },
+
+                "humidity": {
+                    "current": self._decode_humidity(d, 8 + n),
+                    "min"    : self._decode_humidity(d, 15 + n*2),
+                    "max"    : self._decode_humidity(d, 14 + n*2), },
+            }
+
+            sensors[n] = sensor
+
+
+            # if we're in debug mode, we log the decoded sensor data
+
+            logging.debug("decoded sensor data: %s "
+                          "temp: %s < %s < %s "
+                          "humidity: %s < %s < %s"
+                              % (n,
+                                 sensor["temp"]["min"] or "?",
+                                 sensor["temp"]["current"] or "?",
+                                 sensor["temp"]["max"] or "?",
+                                 sensor["humidity"]["min"] or "?",
+                                 sensor["humidity"]["current"] or "?",
+                                 sensor["humidity"]["max"] or "?"))
+
+        return sensors
+
+
+    def get_raw_data(self):
+        """This method connects, gets the current data from the weather
+        station, disconnects and returns it as a dictionary keyed on
+        the handle of the data packets (e.g. sensor data is in
+        data[SENSORS_HANDLE]) with bytes objects as values.
+        """
+
+        # connect and enable notifications
+
+        self._connect()
+        self._enable_notifications()
+
+
+        # loop, waiting for and handling notifications, with a 1.0s
+        # timeout - if no notification is received in that time, we
+        # assume we're done
+
+        while self._station.waitForNotifications(1.0):
+            # _WeatherStationDelegate.handleNotification() will be
+            # callbacked here, as they come come in
+            continue
+
+
+        logging.debug("notifications complete or timed out")
+
+
+        # get the data retrieved via the notifications and disconnect
+
+        data = self._station.delegate.getData()
+        self._disconnect()
+
+
+        return data
 
 
     def measure(self):
@@ -335,12 +368,14 @@ class WeatherStation(object):
         # connect to the weather station, read the current data and
         # disconnect
 
-        system_data, sensor_data = self._get_data()
+        data = self.get_raw_data()
 
 
         # decode and store the date and time using the system data
 
-        self._clock = self._decode_clock(system_data) if system_data else None
+        self._clock = (self._decode_clock(data[CLOCK_HANDLE])
+                           if CLOCK_HANDLE in data
+                           else None)
 
         if self._clock:
             logging.debug("decoded clock data: %s", self._clock)
@@ -349,42 +384,11 @@ class WeatherStation(object):
         # if the sensor data was missing, blank it out and stop with
         # failure
 
-        if sensor_data is None:
+        if SENSORS_HANDLE not in data:
             self._sensors = {}
             raise WeatherStationNoDataError("no data received from station")
 
-
-        # decode the data from each of the sensors, storing it in the
-        # sensor data dictionary
-
-        for n in range(0, 4):
-            sensor = {
-                "temp": {
-                    "current": self._decode_temp(sensor_data, n*2),
-                    "min"    : self._decode_temp(sensor_data, 24 + n*4),
-                    "max"    : self._decode_temp(sensor_data, 22 + n*4), },
-
-                "humidity": {
-                    "current": self._decode_humidity(sensor_data, 8 + n),
-                    "min"    : self._decode_humidity(sensor_data, 15 + n*2),
-                    "max"    : self._decode_humidity(sensor_data, 14 + n*2), },
-            }
-
-            self._sensors[n] = sensor
-
-
-            # if we're in debug mode, we log the decoded sensor data
-
-            logging.debug("decoded sensor data: %s "
-                          "temp: %s < %s < %s "
-                          "humidity: %s < %s < %s"
-                              % (n,
-                                 sensor["temp"]["min"] or "?",
-                                 sensor["temp"]["current"] or "?",
-                                 sensor["temp"]["max"] or "?",
-                                 sensor["humidity"]["min"] or "?",
-                                 sensor["humidity"]["current"] or "?",
-                                 sensor["humidity"]["max"] or "?"))
+        self._sensors = self._decode_sensors(data[SENSORS_HANDLE])
 
 
     def measure_retry(self, timeout=30, interval=3):
@@ -501,72 +505,59 @@ class _WeatherStationDelegate(btle.DefaultDelegate):
 
         super().__init__()
 
-        self._sensordata = {}
-        self._systemdata = None
+        self._notification_data = {}
 
 
-    def handleNotification(self, cHandle, data):
-        "Handle a notification received from the weather station."
+    def handleNotification(self, cHandle, payload):
+        """Handle a notification received from the weather station.
 
-        # the characteristic handle indicates the type of notification
-        # packet received
+        cHandle -- the characteristic handle (the type of notification
+        packet)
 
-        if cHandle == 0x0017:
-            # weather sensor data packet
-
-
-            # the weather data is made up of two parts - the high bit of
-            # the first byte tells us which we have
-
-            part = (data[0] & 0x80) // 0x80
-
-
-            logging.debug("received notification: sensor data part: %d: %s",
-                          part, b2a_hex(data))
-
-
-            # store the received data, dropping the first byte (the part
-            # number) because that lets us join everything together and
-            # more easily extract data algorithmically
-
-            self._sensordata[part] = data[1:]
-
-
-        elif cHandle == 0x001d:
-            # system data packet (containing the date and time, and
-            # probably some other things)
-
-            logging.debug("received notification: system data: %s",
-                          b2a_hex(data))
-
-            self._systemdata = data
-
-
-        else:
-            # skip other types of packet
-
-            logging.debug("received notification: unknown data: %x: %s",
-                          cHandle, b2a_hex(data))
-
-
-    def getSensorData(self):
-        """Return the received weather sensor data as a sequence of
-        bytes.
-
-        If a complete set of weather data was not received (one or both
-        of parts 0 and 1 missing) then None is returned.
+        payload -- the data portion of the packet
         """
 
-        if not ((0 in self._sensordata) and (1 in self._sensordata)):
-            return None
+        logging.debug("received notification: handle: %04x %d payload: %s",
+                      cHandle, b2a_hex(payload))
 
-        return self._sensordata[0] + self._sensordata[1]
+        # we assume that the high bit of the first byte in the payload
+        # is a flag indicating if this packet continues from the
+        # previous one, so we use it to select a 'part' (0 = first, 1 =
+        # second); it's unclear if there are packets >2 parts but we
+        # assume not
+        part = (payload[0] & 0x80) // 0x80
+
+        # store the payload data (minus the first byte, which seems to
+        # only usefully contain the part flag)
+        #
+        # we sort out checking the parts are complete and concatenating
+        # them at the end
+        self._notification_data.setdefault(cHandle, {})
+        self._notification_data[cHandle][part] = payload[1:]
 
 
-    def getSystemData(self):
-        """Return the received system data as a sequence of bytes.
+    def getData(self):
+        """Get the data received from the notifications.  This method
+        should be called after receiving has timed out.
 
-        If it was not received, None is returned.
+        The data across packets giving different parts with the same
+        handle will be concatenated./
+
+        The return value is a dictionary keyed on the handle, with each
+        value being the bytes in the payload, minus the first byte in
+        each packet (indication the packet number).
         """
 
-        return self._systemdata
+        # initial return dictionary
+        data = {}
+
+        # go through the handles of received notifications
+        for handle in self._notification_data:
+            handle_dict = self._notification_data[handle]
+
+            # concatenate the bytes from each packet
+            data[handle] = bytes()
+            for part in range(0, max(handle_dict) + 1):
+                data[handle] += handle_dict[part]
+
+        return data
