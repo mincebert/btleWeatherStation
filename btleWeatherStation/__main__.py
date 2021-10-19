@@ -187,10 +187,10 @@ if args.raw:
 
 # data retrieved - print current temperatures from any present sensors
 
-print("current sensor temperatures / humidities:")
+print("sensor: temperature / humidity:")
 
 for num in range(0, 6):
     if station.sensor_present(num):
-        print("%d = %5.1f'C / %d%%"
+        print("%d: %5.1f'C / %d%%"
                   % (num, station.get_temp(num)["current"],
                      station.get_humidity(num)["current"]))
