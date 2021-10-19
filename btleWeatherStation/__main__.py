@@ -89,8 +89,8 @@ parser.add_argument(
 parser.add_argument(
     "-l", "--detail",
     action="store_true",
-    help="report more detail in displayed data (min+max and low battery
-          alarm status)")
+    help="report more detail in displayed data (min+max and low battery"
+         "alarm status)")
 
 parser.add_argument(
     "-r", "--raw",
