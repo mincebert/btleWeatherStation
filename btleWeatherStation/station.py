@@ -316,9 +316,13 @@ class WeatherStation(object):
         # get the sensors notification data
         s = d[SENSORS_HANDLE]
 
+        # get the sensors present and which have low battery
+        sensors_present = self._decode_sensors_present(d[STATUS_HANDLE])
+        low_battery = self._decode_low_battery(d[STATUS_HANDLE])
+
         # go through the set of sensors which are present, getting
         # their data
-        for n in sorted(self._decode_sensors_present(d[STATUS_HANDLE])):
+        for n in sorted(sensors_present):
             sensor = {
                 "temp": {
                     "current": self._decode_temp(s, n*2),
@@ -329,6 +333,8 @@ class WeatherStation(object):
                     "current": self._decode_humidity(s, 8 + n),
                     "min"    : self._decode_humidity(s, 15 + n*2),
                     "max"    : self._decode_humidity(s, 14 + n*2), },
+
+                "low_battery": n in low_battery,
             }
 
             sensors[n] = sensor
@@ -337,15 +343,17 @@ class WeatherStation(object):
             # if we're in debug mode, we log the decoded sensor data
 
             logging.debug("decoded sensor data: %s "
-                          "temp: %s < %s < %s "
-                          "humidity: %s < %s < %s"
+                          "temp: %s < %s < %s, "
+                          "humidity: %s < %s < %s, "
+                          "low battery?: %s"
                               % (n,
                                  sensor["temp"]["min"] or "?",
                                  sensor["temp"]["current"] or "?",
                                  sensor["temp"]["max"] or "?",
                                  sensor["humidity"]["min"] or "?",
                                  sensor["humidity"]["current"] or "?",
-                                 sensor["humidity"]["max"] or "?"))
+                                 sensor["humidity"]["max"] or "?",
+                                 sensor["low_battery"]))
 
         return sensors
 
@@ -551,7 +559,7 @@ class _WeatherStationDelegate(btle.DefaultDelegate):
         payload -- the data portion of the packet
         """
 
-        logging.debug("received notification: handle: %04x %d payload: %s",
+        logging.debug("received notification: handle: %04x payload: %s",
                       cHandle, b2a_hex(payload))
 
         # we assume that the high bit of the first byte in the payload
