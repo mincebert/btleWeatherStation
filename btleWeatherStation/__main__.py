@@ -60,6 +60,11 @@ parser.add_argument(
     help="scan for weather stations in range (requires root privilege)")
 
 parser.add_argument(
+    "-r", "--raw",
+    action="store_true",
+    help="dump raw received notification data from the station")
+
+parser.add_argument(
     "-d", "--debug",
     action="store_true",
     help="print debug messages")
@@ -77,7 +82,9 @@ args = parser.parse_args()
 # perform some validity checks on the arguments
 
 if ((1 if args.scan else 0) + (1 if args.mac else 0)) != 1:
-    print("error: one (and only one) of -m and -s can be specified", file=sys.stderr)
+    print("error: one (and only one) of -m and -s can be specified",
+          file=sys.stderr)
+
     exit(1)
 
 
@@ -135,6 +142,47 @@ except Exception as e:
     print("error:", e, file=sys.stderr)
     exit(1)
 
+
+# handle raw data dump mode
+
+if args.raw:
+    # initialise the list of output lines
+    lines = []
+
+    raw_data = station.get_raw_data()
+    for handle in raw_data:
+        # write the handle number and a blank line, if not first
+        if lines:
+            lines.append("")
+        lines.append("[%04x]" % handle)
+
+        # initialise offset of bytes and this line
+        n = 0
+        line = ""
+
+        # go through the bytes of this handle's notification data
+        for byte in raw_data[handle]:
+            # if we're at a multiple of 16, start a new line and
+            # include the offset to the start of that line in hex
+            if (n % 16) == 0:
+                if line:
+                    lines.append(line)
+                line = "%04x:" % n
+
+            # add this byte, with a hyphen separator, if we're at a
+            # multiple of 8 bytes (i.e. the middle of the line)
+            line += ("%c%02x" %
+                         (" " if (n % 8) or ((n % 16) == 0) else "-", byte))
+
+            n += 1
+
+        # add the final line, if there is one
+        if line:
+            lines.append(line)
+
+    print("\n".join(lines))
+
+    exit(0)
 
 
 # data retrieved - print current temperatures from any present sensors
