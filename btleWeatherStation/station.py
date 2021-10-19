@@ -181,48 +181,48 @@ class WeatherStation(object):
         logging.debug("notifications enabled")
 
 
-    def _decode_temp(self, d, o):
-        """Decode temperature data from the binary blob, received in a
-        notification, and return it as a float.
+    def _decode_temp(self, b, o):
+        """Decode temperature data from sensors notification bytes and
+        return it as a float.
 
         Temperatures are stored as two bytes, little-endian order,
         signed and multiplied by 10 (so a single decimal point).
 
         If the data is missing, return None.
 
-        d -- the data as a block of bytes
+        b -- the sensors notification data as a block of bytes
 
         o -- the offset into the block, of the first byte
         """
 
         # missing temperatures have 0x7f in the most significant byte
-        if d[o + 1] == 0x7f:
+        if b[o + 1] == 0x7f:
             return None
 
-        return int.from_bytes(d[o : o+2], "little", signed=True) / 10
+        return int.from_bytes(b[o : o+2], "little", signed=True) / 10
 
 
-    def _decode_humidity(self, d, o):
-        """Decode humidity data from the binary blob, received in a
-        notification, and return it as an integer percentage.
+    def _decode_humidity(self, b, o):
+        """Decode humidity data from sensors notification bytes and
+        return it as an integer percentage.
 
         If the data is missing, return None.
 
-        d -- the data as a block of bytes
+        b -- the sensors notification data as a block of bytes
 
         o -- the offset into the block, of the byte
         """
 
         # missing data has a percentage greater than 100%
-        if d[o] > 100:
+        if b[o] > 100:
             return None
 
-        return d[o]
+        return b[o]
 
 
-    def _decode_clock(self, d):
-        """Decode the weather station clock from the supplied clock
-        data block of bytes.
+    def _decode_clock(self, b):
+        """Decode the weather station clock from the supplied
+        clock notification data.
 
         The bytes at the positions below have the following meaning:
 
@@ -239,19 +239,19 @@ class WeatherStation(object):
         Note: there is always a clock time present - it's just
         incorrect, if not set.
 
-        d -- the clock notification packet bytes (minus first byte)
+        d -- the clock notification data as a block of bytes
         """
 
         return datetime(
-                   year=2000 + d[0], month=d[1], day=d[2],
-                   hour=d[3], minute=d[4], second=d[5])
+                   year=2000 + b[0], month=b[1], day=b[2],
+                   hour=b[3], minute=b[4], second=b[5])
 
 
     def _decode_sensors(self, d):
-        """Decode the data from the sensors given the sensors
-        notification packet bytes.
+        """Decode the data from the sensors from the supplied
+        notification dictionary.
 
-        The bytes at the positions below have the followingmeaning:
+        The bytes at the positions below have the following meaning:
 
         00-01 = sensor 0 (internal): temperature - current
         02-03 = sensor 1: temperature - current
@@ -279,22 +279,25 @@ class WeatherStation(object):
         34-35 = sensor 3: temperature - maxumum
         36-37 = sensor 3: temperature - minimum
 
-        d -- the sensors notification packet bytes (minus first byte)
+        d -- notification dictionary (as returned by get_raw_data())
         """
 
         sensors = {}
 
+        # get the sensors notification data
+        s = d[SENSORS_HANDLE]
+
         for n in range(0, 4):
             sensor = {
                 "temp": {
-                    "current": self._decode_temp(d, n*2),
-                    "min"    : self._decode_temp(d, 24 + n*4),
-                    "max"    : self._decode_temp(d, 22 + n*4), },
+                    "current": self._decode_temp(s, n*2),
+                    "min"    : self._decode_temp(s, 24 + n*4),
+                    "max"    : self._decode_temp(s, 22 + n*4), },
 
                 "humidity": {
-                    "current": self._decode_humidity(d, 8 + n),
-                    "min"    : self._decode_humidity(d, 15 + n*2),
-                    "max"    : self._decode_humidity(d, 14 + n*2), },
+                    "current": self._decode_humidity(s, 8 + n),
+                    "min"    : self._decode_humidity(s, 15 + n*2),
+                    "max"    : self._decode_humidity(s, 14 + n*2), },
             }
 
             sensors[n] = sensor
@@ -388,7 +391,7 @@ class WeatherStation(object):
             self._sensors = {}
             raise WeatherStationNoDataError("no data received from station")
 
-        self._sensors = self._decode_sensors(data[SENSORS_HANDLE])
+        self._sensors = self._decode_sensors(data)
 
 
     def measure_retry(self, timeout=30, interval=3):
