@@ -470,9 +470,13 @@ class WeatherStation(object):
             total += interval
 
 
-    def sensor_present(self, n=0):
+    def sensor_present(self, n):
         """This method returns if there is data for a particular sensor
         present, after calling measure().
+
+        The presence can also be tested for by using get_sensors() and
+        testing if the sensor's number is present in the returned
+        dictionary.
         """
 
         return n in self._sensors
@@ -481,7 +485,12 @@ class WeatherStation(object):
     def get_sensors(self):
         """This method returns a dictionary, keyed on the sensor number
         and then on the type of data measured ("temp" and "humidity")
-        and then the value ("current", "min" and "max").
+        and then the value ("current", "min" and "max"); there is also
+        a "low_battery" key with a flag showing if that alarm is set.
+
+        A sensor's presence can be explicitly tested for with the
+        sensor_present() method or by checking if its key is in this
+        dictionary.
 
         The returned value must not be changed: if it is to be
         modified, it must be deepcopy()ed first.
