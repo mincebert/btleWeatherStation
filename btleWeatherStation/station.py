@@ -540,6 +540,16 @@ class WeatherStation(object):
         return self._sensors[n].get("humidity")
 
 
+    def get_low_battery(self, n=0):
+        """This method returns the low battery alarm from the numbered
+        sensor (with 0 being the weather station's battery).
+
+        The return value is a boolean.  If the status is unavailable,
+        None will be returned.
+        """
+
+        return self._sensors[n].get("low_battery")
+
 
 class _WeatherStationDelegate(btle.DefaultDelegate):
     """This class handles notifications from a BtLE weather station and

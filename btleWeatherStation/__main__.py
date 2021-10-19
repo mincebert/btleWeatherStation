@@ -25,6 +25,33 @@ from . import __version__, WeatherStation, scan
 
 
 
+# --- functions ---
+
+
+
+def temp_or_none(t):
+    """Return the supplied temperature as a string in the format
+    "%5.1f" or a hyphen, if unavailable (None).
+    """
+
+    if t is None:
+        return "    -"
+
+    return "%5.1f" % t
+
+
+def humidity_or_none(h):
+    """Return the supplied humidity percentage as a string in the
+    format "%2d", or a hyphen, if unavailable (None).
+    """
+
+    if h is None:
+        return "--"
+
+    return "%2d" % h
+
+
+
 # --- parse arguments ---
 
 
@@ -192,42 +219,30 @@ if args.raw:
 
 # data retrieved - print current temperatures from any present sensors
 
-def temp_or_none(t):
-    if t is None:
-        return "-----"
-    return "%5.1f" % t
-
-def humidity_or_none(h):
-    if h is None:
-        return "--"
-
-    return "%2d" % h
-
 if args.detail:
     print("sensor: min < current temp < max : min < current humidity < max:")
 
-    for num in range(0, 6):
-        if station.sensor_present(num):
-            print(
-                "%d: %s < %s'C < %s : %s < %s%% < %s"
-                    % (num,
-                       temp_or_none(station.get_temp(num)["min"]),
-                       temp_or_none(station.get_temp(num)["current"]),
-                       temp_or_none(station.get_temp(num)["max"]),
-                       humidity_or_none(station.get_humidity(num)["min"]),
-                       humidity_or_none(station.get_humidity(num)["current"]),
-                       humidity_or_none(station.get_humidity(num)["max"]),
-                      ))
+    for s in station.get_sensors():
+        print(
+            "%d: %s < %s'C < %s : %s < %s%% < %s%s"
+                % (s,
+                   temp_or_none(station.get_temp(s)["min"]),
+                   temp_or_none(station.get_temp(s)["current"]),
+                   temp_or_none(station.get_temp(s)["max"]),
+                   humidity_or_none(station.get_humidity(s)["min"]),
+                   humidity_or_none(station.get_humidity(s)["current"]),
+                   humidity_or_none(station.get_humidity(s)["max"]),
+                   " : !! low battery" if station.get_low_battery(s) else ""
+                  ))
 
     exit(0)
 
 
 print("sensor: temp : humidity:")
 
-for num in range(0, 6):
-    if station.sensor_present(num):
-        print("%d: %5.1f'C : %d%%"
-                  % (num,
-                     station.get_temp(num)["current"],
-                     station.get_humidity(num)["current"],
-                    ))
+for s in station.get_sensors():
+    print("%d: %5.1f'C : %d%%"
+              % (s,
+                 station.get_temp(s)["current"],
+                 station.get_humidity(s)["current"],
+                ))
