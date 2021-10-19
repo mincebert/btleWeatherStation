@@ -46,7 +46,7 @@ def humidity_or_none(h):
     """
 
     if h is None:
-        return "--"
+        return " -"
 
     return "%2d" % h
 
