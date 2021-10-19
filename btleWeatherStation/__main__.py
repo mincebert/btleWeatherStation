@@ -60,6 +60,11 @@ parser.add_argument(
     help="scan for weather stations in range (requires root privilege)")
 
 parser.add_argument(
+    "-l", "--detail",
+    action="store_true",
+    help="report more detail in displayed data (min+max)")
+
+parser.add_argument(
     "-r", "--raw",
     action="store_true",
     help="dump raw received notification data from the station")
@@ -187,10 +192,42 @@ if args.raw:
 
 # data retrieved - print current temperatures from any present sensors
 
-print("sensor: temperature / humidity:")
+def temp_or_none(t):
+    if t is None:
+        return "-----"
+    return "%5.1f" % t
+
+def humidity_or_none(h):
+    if h is None:
+        return "--"
+
+    return "%2d" % h
+
+if args.detail:
+    print("sensor: min < current temp < max : min < current humidity < max:")
+
+    for num in range(0, 6):
+        if station.sensor_present(num):
+            print(
+                "%d: %s < %s'C < %s : %s < %s%% < %s"
+                    % (num,
+                       temp_or_none(station.get_temp(num)["min"]),
+                       temp_or_none(station.get_temp(num)["current"]),
+                       temp_or_none(station.get_temp(num)["max"]),
+                       humidity_or_none(station.get_humidity(num)["min"]),
+                       humidity_or_none(station.get_humidity(num)["current"]),
+                       humidity_or_none(station.get_humidity(num)["max"]),
+                      ))
+
+    exit(0)
+
+
+print("sensor: temp : humidity:")
 
 for num in range(0, 6):
     if station.sensor_present(num):
-        print("%d: %5.1f'C / %d%%"
-                  % (num, station.get_temp(num)["current"],
-                     station.get_humidity(num)["current"]))
+        print("%d: %5.1f'C : %d%%"
+                  % (num,
+                     station.get_temp(num)["current"],
+                     station.get_humidity(num)["current"],
+                    ))
