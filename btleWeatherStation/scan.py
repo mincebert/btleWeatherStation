@@ -129,52 +129,10 @@ def scan(names=WEATHERSTATION_NAMES, timeout=2.0):
 
     try:
         scanner.scan(timeout)
+        logging.debug("scan completed")
+
     except btle.BTLEException as e:
-        logging.debug("scanning failed: %s", e)
-        return None
-
-    logging.debug("scan finshed")
-
-
-    # return the list of found devices
-
-    return scan_delegate.getDevices()
-def scan(names=WEATHERSTATION_NAMES, timeout=2.0):
-    """This function scans for devices via BtLE, looking for weather
-    stations.  These are identified by the GAP Complete Local Name
-    (0x09) field in the scan notification - it must match one of the
-    listed names.
-
-    The returned value is a dictionary with the keys as the MAC
-    addresses of the found weather stations and the values as the names
-    (as per GAP Complete Local Name) or None, if there was a problem
-    doing the scan.  This list must not be modified in place but
-    copy()ed first, if it is going to be changed.
-
-    names=WEATHERSTATION_NAMES -- the list of names in the GAP
-    Complete Local Name to match.
-
-    timeout=2.0 -- the timeout before scanning stops, in seconds.
-    """
-
-
-    # create a scan delegate
-
-    scan_delegate = _WeatherStationScanDelegate(names)
-
-
-    # do the scan
-
-    logging.debug("scan starting")
-    scanner = btle.Scanner().withDelegate(scan_delegate)
-
-    try:
-        scanner.scan(timeout)
-    except btle.BTLEException as e:
-        logging.debug("scanning failed: %s", e)
-        return None
-
-    logging.debug("scan finshed")
+        logging.debug("scan aborted: %s", e)
 
 
     # return the list of found devices
