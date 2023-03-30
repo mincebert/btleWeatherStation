@@ -79,7 +79,7 @@ parser.add_argument(
 parser.add_argument(
     "-t", "--timeout",
     type=int,
-    help="total timeout for repeated retries of measure")
+    help="total timeout measure or scan")
 
 parser.add_argument(
     "-s", "--scan",
@@ -137,7 +137,7 @@ if args.debug:
 if args.scan:
     # try the scan, printing an error if it fails
 
-    stations = scan()
+    stations = scan(timeout=args.timeout or 2)
 
     if stations is None:
         print("error: unable to scan for weather stations (are you root?)",
