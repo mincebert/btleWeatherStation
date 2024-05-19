@@ -115,7 +115,7 @@ args = parser.parse_args()
 # perform some validity checks on the arguments
 
 if ((1 if args.scan else 0) + (1 if args.mac else 0)) != 1:
-    print("error: one (and only one) of -m and -s can be specified",
+    print("error: one (and only one) of -m and -s must be specified",
           file=sys.stderr)
 
     exit(1)
