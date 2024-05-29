@@ -50,10 +50,91 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
+class CurrentMinMax(object):
+    "This class represents a class models an individual sensor on a weather station."
+
+    def __init__(self, temp_cur=None, temp_min=None, temp_max=None,
+                 humid_cur=None, humid_min=None, humid_max=None,
+                 low_battery=None):
+
+        super().__init__()
+
+        self.temp = {
+            "current": temp_curr,
+            "min"    : temp_min,
+            "max"    : temp_max,
+        }
+
+        self.humidiy = {
+            "current": humid_curr,
+            "min"    : humid_min,
+            "max"    : humid_max,
+        },
+
+        self.low_battery = low_battery
+
+
+
+class WeatherRange(object):
+    def __init__(self, current, min, max):
+        super().__init__()
+
+        self.current = current
+        self.min = min
+        self.max = max
+
+
+
+class WeatherStationSensor(object):
+    def __init__(
+            self, temp_current=None, temp_min=None, temp_max=None,
+            humidity_current=None, humidity_min=None, humidity_max=None):
+        
+        super().__init__()
+
+        self.temp_current = temp_current
+        self.temp_min = temp_min
+        self.temp_max = temp_max
+
+        self.humidity_current = humidity_current
+        self.humidity_min = humidity_min
+        self.humidity_max = humidity_max
+
+
+    def __str__(self):
+        def valstr(n):
+            return n if n is not None else "<?>"
+
+        return (
+            f"temp: { valstr(self.temp_min) }"
+            f" <= { valstr(self.temp_current) }"
+            f" <= { valstr(self.temp_max) }"
+            f", humidity: { valstr(self.humidity_min) }"
+            f" <= { valstr(self.humidity_current) }"
+            f" <= { valstr(self.humidity_max) }")
+
+
+class WeatherStationData(dict):
+    """Snapshot of data collected from a WeatherStation.  The data is
+    organised as a dictionary keyed on the sensor number, then has
+    'temp' and 'humidity' properties, each with 'current', 'min' and
+    'max'.  TODO
+    """
+
+    def __str__(self):
+        return "\n".join([ f"sensor { sensor } :: { self[sensor] }"
+                             for sensor in sorted(self) ])
+
+
+
 class WeatherStation(object):
     """This class models a weather station and has methods to connect
     and retrieve data from it.
     """
+
+
+    class CurrentMinMax(object):
+        pass
 
 
     def __init__(self, mac):
@@ -320,8 +401,12 @@ class WeatherStation(object):
         sensors_present = self._decode_sensors_present(d[STATUS_HANDLE])
         low_battery = self._decode_low_battery(d[STATUS_HANDLE])
 
+        # TODO
+        d = WeatherStationData()
+
         # go through the set of sensors which are present, getting
         # their data
+
         for n in sorted(sensors_present):
             sensor = {
                 "temp": {
@@ -336,6 +421,14 @@ class WeatherStation(object):
 
                 "low_battery": n in low_battery,
             }
+
+            d[n] = WeatherStationSensor(
+                temp_current=sensor["temp"]["current"],
+                temp_min=sensor["temp"]["min"],
+                temp_max=sensor["temp"]["max"],
+                humidity_current=sensor["humidity"]["current"],
+                humidity_min=sensor["humidity"]["min"],
+                humidity_max=sensor["humidity"]["max"])
 
             sensors[n] = sensor
 
@@ -354,6 +447,9 @@ class WeatherStation(object):
                                  sensor["humidity"]["current"] or "?",
                                  sensor["humidity"]["max"] or "?",
                                  sensor["low_battery"]))
+
+        # TODO
+        self.weather_data = d
 
         return sensors
 
