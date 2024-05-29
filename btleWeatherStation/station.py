@@ -46,7 +46,77 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
+# --- functions ---
+
+
+
+def val_default(n, default):
+    """TODO
+    """
+    return n if n is not None else default
+
+
+
 # --- classes ---
+
+
+
+class WeatherStationSensor(object):
+    def __init__(
+            self, temp_current=None, temp_min=None, temp_max=None,
+            humidity_current=None, humidity_min=None, humidity_max=None,
+            low_battery=None):
+
+        """TODO
+        """
+
+        super().__init__()
+
+        self.temp_current = temp_current
+        self.temp_min = temp_min
+        self.temp_max = temp_max
+
+        self.humidity_current = humidity_current
+        self.humidity_min = humidity_min
+        self.humidity_max = humidity_max
+
+        self.low_battery=low_battery
+
+
+    def __str__(self):
+        def valstr(n):
+            return n if n is not None else "--"
+
+        return (
+            f"temp: { valstr(self.temp_min) }"
+            f" <= { valstr(self.temp_current) }"
+            f" <= { valstr(self.temp_max) }"
+            f", humidity: { valstr(self.humidity_min) }"
+            f" <= { valstr(self.humidity_current) }"
+            f" <= { valstr(self.humidity_max) }")
+
+
+
+class WeatherStationData(object):
+    """Snapshot of data collected from a WeatherStation.  The data is
+    organised as a dictionary keyed on the sensor number, then has
+    'temp' and 'humidity' properties, each with 'current', 'min' and
+    'max'.  TODO
+    """
+
+    def __init__(self, clock=None, sensors=None):
+        """TODO
+        """
+
+        super().__init__()
+
+        self.clock = clock
+        self.sensors = val_default(sensors, {})
+
+
+    def __str__(self):
+        return "\n".join([ f"sensor { sensor } :: { self.sensors[sensor] }"
+                             for sensor in sorted(self.sensors) ])
 
 
 
@@ -242,9 +312,22 @@ class WeatherStation(object):
         b -- the clock notification data as a block of bytes
         """
 
-        return datetime(
-                   year=2000 + b[0], month=b[1], day=b[2],
-                   hour=b[3], minute=b[4], second=b[5])
+        return datetime(year=2000 + b[0], month=b[1], day=b[2],
+                        hour=b[3], minute=b[4], second=b[5])
+
+
+    def _decode_low_battery(self, b):
+        """Return a set of the numbers of the sensors which currently
+        have the 'low battery' alarm.  This includes sensor 0 - the
+        display.
+
+        b -- the status notification data as a block of bytes
+        """
+
+        # the display's low battery is the MSB of the first byte; each
+        # sensor's low battery state is a bitfield in the sixth byte
+        return { 0 } if b[0] & 0x80 else set().union(
+                   { s for s in range(1, 4) if b[5] & (1 << (s - 1)) })
 
 
     def _decode_sensors_present(self, b):
@@ -262,21 +345,7 @@ class WeatherStation(object):
                    { s for s in range(1, 4) if b[1] & (1 << (s - 1)) })
 
 
-    def _decode_low_battery(self, b):
-        """Return a set of the numbers of the sensors which currently
-        have the 'low battery' alarm.  This includes sensor 0 - the
-        display.
-
-        b -- the status notification data as a block of bytes
-        """
-
-        # the display's low battery is the MSB of the first byte; each
-        # sensor's low battery state is a bitfield in the sixth byte
-        return { 0 } if b[0] & 0x80 else set().union(
-                   { s for s in range(1, 4) if b[5] & (1 << (s - 1)) })
-
-
-    def _decode_sensors(self, d):
+    def _decode_sensors_data(self, raw_data):
         """Decode the data from the sensors from the supplied
         notification dictionary.
 
@@ -308,36 +377,38 @@ class WeatherStation(object):
         34-35 = sensor 3: temperature - maxumum
         36-37 = sensor 3: temperature - minimum
 
-        d -- notification dictionary (as returned by get_raw_data())
+        raw_data -- notification dictionary (as returned by get_raw_data())
         """
 
-        sensors = {}
-
-        # get the sensors notification data
-        s = d[SENSORS_HANDLE]
+        # get the sensors notification packet data
+        sensor_data = raw_data[SENSORS_HANDLE]
 
         # get the sensors present and which have low battery
-        sensors_present = self._decode_sensors_present(d[STATUS_HANDLE])
-        low_battery = self._decode_low_battery(d[STATUS_HANDLE])
+        sensors_present = self._decode_sensors_present(raw_data[STATUS_HANDLE])
+        low_battery = self._decode_low_battery(raw_data[STATUS_HANDLE])
+
+        # TODO
+        sensors = {}
 
         # go through the set of sensors which are present, getting
         # their data
-        for n in sorted(sensors_present):
-            sensor = {
-                "temp": {
-                    "current": self._decode_temp(s, n*2),
-                    "min"    : self._decode_temp(s, 24 + n*4),
-                    "max"    : self._decode_temp(s, 22 + n*4), },
 
-                "humidity": {
-                    "current": self._decode_humidity(s, 8 + n),
-                    "min"    : self._decode_humidity(s, 15 + n*2),
-                    "max"    : self._decode_humidity(s, 14 + n*2), },
+        for sensor in sorted(sensors_present):
+            temp_current = self._decode_temp(sensor_data, sensor*2)
+            temp_min = self._decode_temp(sensor_data, 24 + sensor*4)
+            temp_max = self._decode_temp(sensor_data, 22 + sensor*4)
+            humidity_current = self._decode_humidity(sensor_data, 8 + sensor)
+            humidity_min = self._decode_humidity(sensor_data, 15 + sensor*2)
+            humidity_max = self._decode_humidity(sensor_data, 14 + sensor*2)
 
-                "low_battery": n in low_battery,
-            }
-
-            sensors[n] = sensor
+            sensors[sensor] = WeatherStationSensor(
+                temp_current=temp_current,
+                temp_min=temp_min,
+                temp_max=temp_max,
+                humidity_current=humidity_current,
+                humidity_min=humidity_min,
+                humidity_max=humidity_max,
+                low_battery=low_battery)
 
 
             # if we're in debug mode, we log the decoded sensor data
@@ -346,14 +417,14 @@ class WeatherStation(object):
                           "temp: %s < %s < %s, "
                           "humidity: %s < %s < %s, "
                           "low battery?: %s"
-                              % (n,
-                                 sensor["temp"]["min"] or "?",
-                                 sensor["temp"]["current"] or "?",
-                                 sensor["temp"]["max"] or "?",
-                                 sensor["humidity"]["min"] or "?",
-                                 sensor["humidity"]["current"] or "?",
-                                 sensor["humidity"]["max"] or "?",
-                                 sensor["low_battery"]))
+                              % (sensor,
+                                 val_default(temp_min, "--"),
+                                 val_default(temp_current, "--"),
+                                 val_default(temp_max, "--"),
+                                 val_default(humidity_min, "--"),
+                                 val_default(humidity_current, "--"),
+                                 val_default(humidity_max, "--"),
+                                 val_default(low_battery, "--")))
 
         return sensors
 
@@ -404,33 +475,37 @@ class WeatherStation(object):
 
         If no data was received, an WeatherStationNoDataError exception
         is raised.
+
+        TODO
         """
 
 
         # connect to the weather station, read the current data and
         # disconnect
 
-        data = self.get_raw_data()
+        raw_data = self.get_raw_data()
 
 
         # decode and store the date and time using the system data
 
-        self._clock = (self._decode_clock(data[CLOCK_HANDLE])
-                           if CLOCK_HANDLE in data
-                           else None)
+        clock = (self._decode_clock(raw_data[CLOCK_HANDLE])
+                     if CLOCK_HANDLE in raw_data
+                     else None)
 
-        if self._clock:
-            logging.debug("decoded clock data: %s", self._clock)
+        if clock:
+            logging.debug("decoded clock data: %s", clock)
 
 
         # if the sensor data was missing, blank it out and stop with
         # failure
 
-        if SENSORS_HANDLE not in data:
-            self._sensors = {}
+        sensors = {}
+        if SENSORS_HANDLE not in raw_data:
             raise WeatherStationNoDataError("no data received from station")
 
-        self._sensors = self._decode_sensors(data)
+        sensors = self._decode_sensors_data(raw_data)
+
+        return WeatherStationData(clock=clock, sensors=sensors)
 
 
     def measure_retry(self, timeout=30, interval=3):
