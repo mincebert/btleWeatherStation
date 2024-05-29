@@ -180,9 +180,9 @@ station = WeatherStation(args.mac)
 
 try:
     if not args.timeout:
-        station.measure()
+        station_data = station.measure()
     else:
-        station.measure_retry(args.timeout, args.interval)
+        station_data = station.measure_retry(args.timeout, args.interval)
 
 except Exception as e:
     print("error:", e, file=sys.stderr)
@@ -262,4 +262,4 @@ for sensor in station.get_sensors():
                          "%4d%%" % station.get_humidity(sensor)["current"]))
 
 print("DATA>>>")
-print(station.weather_data)
+print(station_data)
