@@ -48,9 +48,9 @@ def temp_or_na(t):
     """
 
     if t is None:
-        return "     - "
+        return "    - "
 
-    return "%4.1f" % t
+    return "%3.1f" % t
 
 
 def humidity_or_na(h):

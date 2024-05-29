@@ -50,7 +50,7 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
-def val_default(n, default):
+def default(n, default):
     """TODO
     """
     return n if n is not None else default
@@ -111,7 +111,7 @@ class WeatherStationData(object):
         super().__init__()
 
         self.clock = clock
-        self.sensors = val_default(sensors, {})
+        self.sensors = default(sensors, {})
 
 
     def __str__(self):
@@ -423,12 +423,12 @@ class WeatherStation(object):
                           " humidity: %s <= %s <= %s,"
                           " low battery?: %s"
                               % (sensor,
-                                 val_default(temp_min, "--"),
-                                 val_default(temp_current, "--"),
-                                 val_default(temp_max, "--"),
-                                 val_default(humidity_min, "--"),
-                                 val_default(humidity_current, "--"),
-                                 val_default(humidity_max, "--"),
+                                 default(temp_min, "--"),
+                                 default(temp_current, "--"),
+                                 default(temp_max, "--"),
+                                 default(humidity_min, "--"),
+                                 default(humidity_current, "--"),
+                                 default(humidity_max, "--"),
                                  sensor in low_battery))
 
         return sensors
