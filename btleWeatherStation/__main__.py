@@ -30,8 +30,7 @@ from . import __version__, WeatherStation, scan
 
 # <?>_FMT = (string)
 #
-# string giving the format for the basic station data information
-# display output
+# strings giving the format for the weather data output
 
 DETAIL_FMT = "%s :: %8s < %8s < %8s : %6s < %6s < %6s%s"
 DISPLAY_FMT = "%6s :: %8s : %8s"
@@ -39,30 +38,6 @@ DISPLAY_FMT = "%6s :: %8s : %8s"
 
 
 # --- functions ---
-
-
-
-def temp_or_na(t):
-    """Return the supplied temperature as a string in the format
-    "%4.1f" or a hyphen, if unavailable (None).
-    """
-
-    if t is None:
-        return "    - "
-
-    return "%6.1f" % t
-
-
-
-def humidity_or_na(h):
-    """Return the supplied humidity percentage as a string in the
-    format "%4d", or a hyphen, if unavailable (None).
-    """
-
-    if h is None:
-        return "  - "
-
-    return "%4d" % h
 
 
 
