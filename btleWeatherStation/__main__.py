@@ -25,6 +25,19 @@ from . import __version__, WeatherStation, scan
 
 
 
+# --- constants ---
+
+
+
+# DISPLAY_FMT = (string)
+#
+# string giving the format for the basic station data information
+# display output
+
+DISPLAY_FMT = "%6s :: %8s : %8s"
+
+
+
 # --- functions ---
 
 
@@ -238,10 +251,15 @@ if args.detail:
     exit(0)
 
 
-DISPLAY_FMT = "%6s :: %8s : %8s"
+
+# no special option supplied - just display the station data
+
 print(DISPLAY_FMT % ("sensor", "temp", "humidity"))
 
 for sensor in station.get_sensors():
     print(DISPLAY_FMT % (sensor,
                          "%4.1f'C" % station.get_temp(sensor)["current"],
                          "%4d%%" % station.get_humidity(sensor)["current"]))
+
+print("DATA>>>")
+print(station.weather_data)
