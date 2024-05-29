@@ -50,10 +50,15 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
-def default(n, default):
-    """TODO
+def default(i, default="--"):
+    """Returns the supplied value 'i' if it is not None.  If 'i' is
+    None, the 'default' value is returned.
     """
-    return n if n is not None else default
+
+    if i is None:
+        return default
+
+    return i
 
 
 
@@ -67,7 +72,20 @@ class WeatherStationSensor(object):
             humidity_current=None, humidity_min=None, humidity_max=None,
             low_battery=None):
 
-        """TODO
+        """This class represents a measured status for a sensor on the
+        weather station.  It is typically used by the WeatherStationData
+        class.
+
+        Attributes contain the various measured values:
+
+        * temp_current, temp_min, temp_max -- the current, minimum and
+          maximum temperatures in celcius
+
+        * humidity_current, humidity_min, humidity_max -- the current,
+          minimum and maximum humidities as a percentage (0-100)
+
+        * low_battery -- a boolean indicating if the sensor has a low
+          battery state
         """
 
         super().__init__()
@@ -80,20 +98,22 @@ class WeatherStationSensor(object):
         self.humidity_min = humidity_min
         self.humidity_max = humidity_max
 
-        self.low_battery=low_battery
+        self.low_battery = low_battery
 
 
     def __str__(self):
-        def valstr(n):
-            return n if n is not None else "--"
+        """Returns a simple string representation of the sensor data,
+        primarily for debugging purposes.
+        """
 
         return (
-            f"temp: { valstr(self.temp_min) }"
-            f" <= { valstr(self.temp_current) }"
-            f" <= { valstr(self.temp_max) }"
-            f", humidity: { valstr(self.humidity_min) }"
-            f" <= { valstr(self.humidity_current) }"
-            f" <= { valstr(self.humidity_max) }")
+            f"temp: { default(self.temp_min) }"
+            f" <= { default(self.temp_current) }"
+            f" <= { default(self.temp_max) }"
+            f", humidity: { default(self.humidity_min) }"
+            f" <= { default(self.humidity_current) }"
+            f" <= { default(self.humidity_max) }"
+            f", battery: { "low" if self.low_battery else "ok" }")
 
 
 
