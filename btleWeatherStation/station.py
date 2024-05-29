@@ -50,41 +50,6 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
-class CurrentMinMax(object):
-    "This class represents a class models an individual sensor on a weather station."
-
-    def __init__(self, temp_cur=None, temp_min=None, temp_max=None,
-                 humid_cur=None, humid_min=None, humid_max=None,
-                 low_battery=None):
-
-        super().__init__()
-
-        self.temp = {
-            "current": temp_curr,
-            "min"    : temp_min,
-            "max"    : temp_max,
-        }
-
-        self.humidiy = {
-            "current": humid_curr,
-            "min"    : humid_min,
-            "max"    : humid_max,
-        },
-
-        self.low_battery = low_battery
-
-
-
-class WeatherRange(object):
-    def __init__(self, current, min, max):
-        super().__init__()
-
-        self.current = current
-        self.min = min
-        self.max = max
-
-
-
 class WeatherStationSensor(object):
     def __init__(
             self, temp_current=None, temp_min=None, temp_max=None,
@@ -131,10 +96,6 @@ class WeatherStation(object):
     """This class models a weather station and has methods to connect
     and retrieve data from it.
     """
-
-
-    class CurrentMinMax(object):
-        pass
 
 
     def __init__(self, mac):
