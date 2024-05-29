@@ -294,7 +294,7 @@ class WeatherStation(object):
         return b[o]
 
 
-    def _decode_clock(self, b):
+    def _decode_clock(self, c):
         """Decode the weather station clock from the supplied
         clock notification data.
 
@@ -313,40 +313,41 @@ class WeatherStation(object):
         Note: there is always a clock time present - it's just
         incorrect, if not set.
 
-        b -- the clock notification data as a block of bytes
+        c -- the clock notification data as a block of bytes
         """
 
-        return datetime(year=2000 + b[0], month=b[1], day=b[2],
-                        hour=b[3], minute=b[4], second=b[5])
+        return datetime(year=2000 + c[0], month=c[1], day=c[2],
+                        hour=c[3], minute=c[4], second=c[5])
 
 
-    def _decode_low_battery(self, b):
+    def _decode_low_battery(self, t):
         """Return a set of the numbers of the sensors which currently
         have the 'low battery' alarm.  This includes sensor 0 - the
         display.
 
-        b -- the status notification data as a block of bytes
+        t -- the status notification data as a block of bytes
         """
 
         # the display's low battery is the MSB of the first byte; each
         # sensor's low battery state is a bitfield in the sixth byte
-        return { 0 } if b[0] & 0x80 else set().union(
-                   { s for s in range(1, 4) if b[5] & (1 << (s - 1)) })
+        return { 0 } if t[0] & 0x80 else set().union(
+                   { sensor for sensor in range(1, 4)
+                         if t[5] & (1 << (sensor - 1)) })
 
 
-    def _decode_sensors_present(self, b):
+    def _decode_sensors_present(self, t):
         """Return a set of the numbers of the sensors which are
         present.  Sensor 0 (internal) is always assumed to be
         present, for convenience (you can't detect this, but it's
         clearly the case!).
 
-        b -- the status notification data as a block of bytes
+        t -- the status notification data as a block of bytes
         """
 
         # the 'sensor present' data is a bitfield in the second byte of
         # the status notification data
-        return { 0 }.union(
-                   { s for s in range(1, 4) if b[1] & (1 << (s - 1)) })
+        return { 0 }.union({ sensor for sensor in range(1, 4)
+                                 if t[1] & (1 << (sensor - 1)) })
 
 
     def _decode_sensors_data(self, raw_data):
