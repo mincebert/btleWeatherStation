@@ -115,8 +115,12 @@ class WeatherStationData(object):
 
 
     def __str__(self):
-        return "\n".join([ f"sensor { sensor } :: { self.sensors[sensor] }"
-                             for sensor in sorted(self.sensors) ])
+        """TODO
+        """
+        s = "clock: " + str(self.clock)
+        for sensor in sorted(self.sensors):
+            s += "\n" + f"sensor[{ sensor }]: { self.sensors[sensor] }"
+        return s
 
 
 
