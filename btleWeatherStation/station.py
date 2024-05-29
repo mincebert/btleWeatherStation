@@ -50,15 +50,15 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 
-def default(i, default="--"):
-    """Returns the supplied value 'i' if it is not None.  If 'i' is
+def _default(s, default="--"):
+    """Returns the supplied value 's' if it is not None.  If 's' is
     None, the 'default' value is returned.
     """
 
-    if i is None:
+    if s is None:
         return default
 
-    return i
+    return s
 
 
 
@@ -67,26 +67,28 @@ def default(i, default="--"):
 
 
 class WeatherStationSensor(object):
+    """This class represents a measured status for a sensor on the
+    weather station.  It is typically used by the WeatherStationData
+    class.
+
+    Attributes contain the various measured values:
+
+    * temp_current, temp_min, temp_max -- the current, minimum and
+        maximum temperatures in celcius
+
+    * humidity_current, humidity_min, humidity_max -- the current,
+        minimum and maximum humidities as a percentage (0-100)
+
+    * low_battery -- a boolean indicating if the sensor has a low
+        battery state
+    """
+
     def __init__(
             self, temp_current=None, temp_min=None, temp_max=None,
             humidity_current=None, humidity_min=None, humidity_max=None,
             low_battery=None):
 
-        """This class represents a measured status for a sensor on the
-        weather station.  It is typically used by the WeatherStationData
-        class.
-
-        Attributes contain the various measured values:
-
-        * temp_current, temp_min, temp_max -- the current, minimum and
-          maximum temperatures in celcius
-
-        * humidity_current, humidity_min, humidity_max -- the current,
-          minimum and maximum humidities as a percentage (0-100)
-
-        * low_battery -- a boolean indicating if the sensor has a low
-          battery state
-        """
+        "The constructor just stores the supplied values."
 
         super().__init__()
 
@@ -107,31 +109,37 @@ class WeatherStationSensor(object):
         """
 
         return (
-            f"temp: { default(self.temp_min) }"
-            f" <= { default(self.temp_current) }"
-            f" <= { default(self.temp_max) }"
-            f", humidity: { default(self.humidity_min) }"
-            f" <= { default(self.humidity_current) }"
-            f" <= { default(self.humidity_max) }"
-            f", battery: { "low" if self.low_battery else "ok" }")
+            f"temp: { _default(self.temp_min) }"
+            f" <= { _default(self.temp_current) }"
+            f" <= { _default(self.temp_max) }"
+            f", humidity: { _default(self.humidity_min) }"
+            f" <= { _default(self.humidity_current) }"
+            f" <= { _default(self.humidity_max) }"
+            f", battery: { 'low' if self.low_battery else 'ok' }")
 
 
 
 class WeatherStationData(object):
-    """Snapshot of data collected from a WeatherStation.  The data is
-    organised as a dictionary keyed on the sensor number, then has
-    'temp' and 'humidity' properties, each with 'current', 'min' and
-    'max'.  TODO
+    """Snapshot of all measured data from a WeatherStation, as returned
+    by WeatherStation.measure() (and measure_retry()).
+
+    There are two attributes:
+
+    * clock -- a datetime object containing the time set in the station
+
+    * sensors -- a dictionary, keyed on the sensor number, containing
+      WeatherStationSensor objects giving data for that sensor
     """
 
     def __init__(self, clock=None, sensors=None):
-        """TODO
+        """The constructor just stores the supplied clock and sensor
+        data.
         """
 
         super().__init__()
 
         self.clock = clock
-        self.sensors = default(sensors, {})
+        self.sensors = sensors
 
 
     def __str__(self):
@@ -443,12 +451,12 @@ class WeatherStation(object):
                           " humidity: %s <= %s <= %s,"
                           " low battery?: %s"
                               % (sensor,
-                                 default(temp_min, "--"),
-                                 default(temp_current, "--"),
-                                 default(temp_max, "--"),
-                                 default(humidity_min, "--"),
-                                 default(humidity_current, "--"),
-                                 default(humidity_max, "--"),
+                                 _default(temp_min),
+                                 _default(temp_current),
+                                 _default(temp_max),
+                                 _default(humidity_min),
+                                 _default(humidity_current),
+                                 _default(humidity_max),
                                  sensor in low_battery))
 
         return sensors
@@ -491,17 +499,11 @@ class WeatherStation(object):
 
     def measure(self):
         """Connect to the weather station, retrieve the current weather
-        sensor data, disconnect and decode it, storing it in the
-        object.
-
-        Data includes the temperature and humidity of all the sensors,
-        included stored minima and maxima, as well as the current clock
-        time.
+        sensor data, disconnect and decode it and store it in a
+        WeatherStationData object, which is returned.
 
         If no data was received, an WeatherStationNoDataError exception
         is raised.
-
-        TODO
         """
 
 
@@ -513,9 +515,11 @@ class WeatherStation(object):
 
         # decode and store the date and time using the system data
 
-        clock = (self._decode_clock(raw_data[CLOCK_HANDLE])
-                     if CLOCK_HANDLE in raw_data
-                     else None)
+        if CLOCK_HANDLE not in raw_data:
+            raise WeatherStationNoDataError(
+                      "no clock data received from station")
+
+        clock = self._decode_clock(raw_data[CLOCK_HANDLE])
 
         if clock:
             logging.debug("decoded clock data: %s", clock)
@@ -524,11 +528,14 @@ class WeatherStation(object):
         # if the sensor data was missing, blank it out and stop with
         # failure
 
-        sensors = {}
         if SENSORS_HANDLE not in raw_data:
-            raise WeatherStationNoDataError("no data received from station")
+            raise WeatherStationNoDataError(
+                      "no sensor data received from station")
 
         sensors = self._decode_sensors_data(raw_data)
+
+
+        # build a WeatherStationData object and return it
 
         return WeatherStationData(clock=clock, sensors=sensors)
 
@@ -541,10 +548,11 @@ class WeatherStation(object):
         This is useful because sometimes the weather station connection
         fails and it's necessary to retry it a few times to get data.
 
-        TODO
+        As with measure(), a WeatherStationData object will be returned,
+        or an exception raised.
         """
 
-        total = 0
+        total_time = 0
 
         while True:
             try:
@@ -554,7 +562,7 @@ class WeatherStation(object):
             except (btle.BTLEException, WeatherStationNoDataError):
                 # stop if we've waited at least the maximum time
 
-                if total >= timeout:
+                if total_time >= timeout:
                     logging.debug(
                         "info: stopping measure after: %ds timeout: %ds",
                         total, timeout)
@@ -569,7 +577,7 @@ class WeatherStation(object):
                 total, timeout, interval)
 
             sleep(interval)
-            total += interval
+            total_time += interval
 
 
 
