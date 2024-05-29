@@ -51,8 +51,11 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 def _default(s, default="--"):
-    """Returns the supplied value 's' if it is not None.  If 's' is
+    """Returns the supplied string 's' if it is not None.  If 's' is
     None, the 'default' value is returned.
+
+    It's typically used for debugging messages, to show undefined or
+    unavailable values.
     """
 
     if s is None:
@@ -105,7 +108,8 @@ class WeatherStationSensor(object):
 
     def __str__(self):
         """Returns a simple string representation of the sensor data,
-        primarily for debugging purposes.
+        primarily for debugging purposes and the format should not be
+        relied upon.
         """
 
         return (
@@ -143,8 +147,11 @@ class WeatherStationData(object):
 
 
     def __str__(self):
-        """TODO
+        """Print the station data as a multiline string.  This is
+        primarily used for debugging and the format should not be
+        relied upon.
         """
+
         s = "clock: " + str(self.clock)
         for sensor in sorted(self.sensors):
             s += "\n" + f"sensor[{ sensor }]: { self.sensors[sensor] }"
@@ -420,13 +427,12 @@ class WeatherStation(object):
         sensors_present = self._decode_sensors_present(r[STATUS_HANDLE])
         low_battery = self._decode_low_battery(r[STATUS_HANDLE])
 
-        # TODO
+        # initialise a dictionary of decoded sensor data - this will be
+        # return
         sensors = {}
 
-        # go through the set of sensors which are present, getting
-        # their data
-
         for sensor in sorted(sensors_present):
+            # decode the sensor values from the raw data
             temp_current = self._decode_temp(sensor_data, sensor*2)
             temp_min = self._decode_temp(sensor_data, 24 + sensor*4)
             temp_max = self._decode_temp(sensor_data, 22 + sensor*4)
@@ -434,6 +440,8 @@ class WeatherStation(object):
             humidity_min = self._decode_humidity(sensor_data, 15 + sensor*2)
             humidity_max = self._decode_humidity(sensor_data, 14 + sensor*2)
 
+            # store this sensor's data in a WeatherStationSensor object
+            # in the 'sensors' dictionary
             sensors[sensor] = WeatherStationSensor(
                 temp_current=temp_current,
                 temp_min=temp_min,
@@ -443,9 +451,7 @@ class WeatherStation(object):
                 humidity_max=humidity_max,
                 low_battery=sensor in low_battery)
 
-
             # if we're in debug mode, we log the decoded sensor data
-
             logging.debug("decoded sensor: %s data:"
                           " temp: %s <= %s <= %s,"
                           " humidity: %s <= %s <= %s,"
