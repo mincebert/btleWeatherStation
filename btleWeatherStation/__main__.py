@@ -20,7 +20,6 @@ import argparse
 import logging
 import sys
 
-from bluepy import btle
 from . import __version__, WeatherStation, scan
 
 
@@ -50,7 +49,7 @@ def temp_or_na(t):
     if t is None:
         return "    - "
 
-    return "%3.1f" % t
+    return "%6.1f" % t
 
 
 def humidity_or_na(h):
