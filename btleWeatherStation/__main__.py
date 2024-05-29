@@ -236,16 +236,17 @@ if args.raw:
 if args.detail:
     print("sensor :: min < current temp < max : min < current humidity < max")
 
-    for sensor in station.get_sensors():
+    for sensor in sorted(station_data.sensors):
+        sensor_data = station_data.sensors[sensor]
         print("%d :: %s'C < %s'C < %s'C : %s%% < %s%% < %s%%%s"
                   % (sensor,
-                     temp_or_na(station.get_temp(sensor)["min"]),
-                     temp_or_na(station.get_temp(sensor)["current"]),
-                     temp_or_na(station.get_temp(sensor)["max"]),
-                     humidity_or_na(station.get_humidity(sensor)["min"]),
-                     humidity_or_na(station.get_humidity(sensor)["current"]),
-                     humidity_or_na(station.get_humidity(sensor)["max"]),
-                     " : !! low battery" if station.get_low_battery(sensor)
+                     temp_or_na(sensor_data.temp_min),
+                     temp_or_na(sensor_data.temp_current),
+                     temp_or_na(sensor_data.temp_max),
+                     humidity_or_na(sensor_data.humidity_min),
+                     humidity_or_na(sensor_data.humidity_current),
+                     humidity_or_na(sensor_data.humidity_max),
+                     " : !! low battery" if sensor_data.low_battery
                          else ""))
 
     exit(0)

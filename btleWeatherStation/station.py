@@ -350,7 +350,7 @@ class WeatherStation(object):
                                  if t[1] & (1 << (sensor - 1)) })
 
 
-    def _decode_sensors_data(self, raw_data):
+    def _decode_sensors_data(self, r):
         """Decode the data from the sensors from the supplied
         notification dictionary.
 
@@ -382,15 +382,15 @@ class WeatherStation(object):
         34-35 = sensor 3: temperature - maxumum
         36-37 = sensor 3: temperature - minimum
 
-        raw_data -- notification dictionary (as returned by get_raw_data())
+        r -- notification dictionary (as returned by get_raw_data())
         """
 
         # get the sensors notification packet data
-        sensor_data = raw_data[SENSORS_HANDLE]
+        sensor_data = r[SENSORS_HANDLE]
 
         # get the sensors present and which have low battery
-        sensors_present = self._decode_sensors_present(raw_data[STATUS_HANDLE])
-        low_battery = self._decode_low_battery(raw_data[STATUS_HANDLE])
+        sensors_present = self._decode_sensors_present(r[STATUS_HANDLE])
+        low_battery = self._decode_low_battery(r[STATUS_HANDLE])
 
         # TODO
         sensors = {}
@@ -413,15 +413,15 @@ class WeatherStation(object):
                 humidity_current=humidity_current,
                 humidity_min=humidity_min,
                 humidity_max=humidity_max,
-                low_battery=low_battery)
+                low_battery=sensor in low_battery)
 
 
             # if we're in debug mode, we log the decoded sensor data
 
-            logging.debug("decoded sensor data: %s "
-                          "temp: %s < %s < %s, "
-                          "humidity: %s < %s < %s, "
-                          "low battery?: %s"
+            logging.debug("decoded sensor: %s data:"
+                          " temp: %s <= %s <= %s,"
+                          " humidity: %s <= %s <= %s,"
+                          " low battery?: %s"
                               % (sensor,
                                  val_default(temp_min, "--"),
                                  val_default(temp_current, "--"),
@@ -429,7 +429,7 @@ class WeatherStation(object):
                                  val_default(humidity_min, "--"),
                                  val_default(humidity_current, "--"),
                                  val_default(humidity_max, "--"),
-                                 val_default(low_battery, "--")))
+                                 sensor in low_battery))
 
         return sensors
 
@@ -520,13 +520,15 @@ class WeatherStation(object):
 
         This is useful because sometimes the weather station connection
         fails and it's necessary to retry it a few times to get data.
+
+        TODO
         """
 
         total = 0
 
         while True:
             try:
-                self.measure()
+                return self.measure()
                 break
 
             except (btle.BTLEException, WeatherStationNoDataError):
@@ -549,86 +551,6 @@ class WeatherStation(object):
             sleep(interval)
             total += interval
 
-
-    def sensor_present(self, n):
-        """This method returns if there is data for a particular sensor
-        present, after calling measure().
-
-        The presence can also be tested for by using get_sensors() and
-        testing if the sensor's number is present in the returned
-        dictionary.
-        """
-
-        return n in self._sensors
-
-
-    def get_sensors(self):
-        """This method returns a dictionary, keyed on the sensor number
-        and then on the type of data measured ("temp" and "humidity")
-        and then the value ("current", "min" and "max"); there is also
-        a "low_battery" key with a flag showing if that alarm is set.
-
-        A sensor's presence can be explicitly tested for with the
-        sensor_present() method or by checking if its key is in this
-        dictionary.
-
-        The returned value must not be changed: if it is to be
-        modified, it must be deepcopy()ed first.
-        """
-
-        return self._sensors
-
-
-    def get_clock(self):
-        """This method returns the clock time returned by the weather
-        station.
-
-        If the clock has not been measured or was not available, None
-        will be returned.
-        """
-
-        return self._clock
-
-
-    def get_temp(self, n=0):
-        """This method returns the temperature data from the numbered
-        sensor (with 0 being the weather station's internal sensor).
-        Temperatures are returned as floats.
-
-        The returned value is a dictionary, keyed on the "current",
-        "min" and "max" values.
-
-        If any particular sensor value is unavailable, None will be
-        returned for that.
-        """
-
-        return self._sensors[n].get("temp")
-
-
-    def get_humidity(self, n=0):
-        """This method returns the humidity data from the numbered
-        sensor (with 0 being the weather station's internal sensor).
-        Humidities are returned as an integer, giving the percentage.
-
-        The returned value is a dictionary, keyed on the "current",
-        "min" and "max" values.
-
-        If any particular sensor value is unavailable, None will be
-        returned for that.
-        """
-
-        return self._sensors[n].get("humidity")
-
-
-    def get_low_battery(self, n=0):
-        """This method returns the low battery alarm from the numbered
-        sensor (with 0 being the weather station's battery).
-
-        The return value is a boolean.  If the status is unavailable,
-        None will be returned.
-        """
-
-        return self._sensors[n].get("low_battery")
 
 
 class _WeatherStationDelegate(btle.DefaultDelegate):
