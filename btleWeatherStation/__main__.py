@@ -28,6 +28,15 @@ from . import __version__, WeatherStation, scan
 
 
 
+# DEFAULT_<?> = (various)
+#
+# Default values for various command line options.
+
+DEFAULT_INTERVAL = 3
+DEFAULT_TRIES = 5
+
+
+
 # <?>_FMT = (string)
 #
 # strings giving the format for the weather data output
@@ -79,13 +88,16 @@ parser.add_argument(
 parser.add_argument(
     "-i", "--interval",
     type=int,
-    default=3,
-    help="interval in seconds between retries of measure")
+    default=DEFAULT_INTERVAL,
+    help="interval in seconds between retries of measure (default:"
+         f" {DEFAULT_INTERVAL})")
 
 parser.add_argument(
-    "-t", "--timeout",
+    "-t", "--tries",
     type=int,
-    help="total timeout measure or scan")
+    default=DEFAULT_TRIES,
+    help="maximum number of tries for measure or scan (default:"
+         f" {DEFAULT_TRIES})")
 
 parser.add_argument(
     "-s", "--scan",
@@ -167,10 +179,8 @@ station = WeatherStation(args.mac)
 
 
 try:
-    if not args.timeout:
-        station_data = station.measure()
-    else:
-        station_data = station.measure_retry(args.timeout, args.interval)
+    station_data = station.measure(
+                       max_tries=args.tries, interval=args.interval)
 
 except Exception as e:
     print("error:", e, file=sys.stderr)

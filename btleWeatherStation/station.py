@@ -500,13 +500,16 @@ class WeatherStation(object):
         return data
 
 
-    def measure(self):
+    def measure_once(self):
         """Connect to the weather station, retrieve the current weather
         sensor data, disconnect and decode it and store it in a
         WeatherStationData object, which is returned.
 
         If no data was received, an WeatherStationNoDataError exception
         is raised.
+
+        This is only attempted once and can fail fairly regulary.  Using
+        measure() (which can handle retries) is recommended.
         """
 
 
@@ -543,7 +546,7 @@ class WeatherStation(object):
         return WeatherStationData(clock=clock, sensors=sensors)
 
 
-    def measure_retry(self, timeout=30, interval=3):
+    def measure(self, max_tries=5, interval=3):
         """This method repeatedly retries measure() until it returns a
         successful result, up until the maximum time specifed,
         sleep()ing for the interval, between each retry.
@@ -555,32 +558,34 @@ class WeatherStation(object):
         or an exception raised.
         """
 
-        total_time = 0
+        tries = 0
 
-        while True:
+        while tries < max_tries:
+            tries += 1
+
             try:
-                return self.measure()
+                return self.measure_once()
                 break
 
             except (btle.BTLEException, WeatherStationNoDataError):
-                # stop if we've waited at least the maximum time
+                # if we have more tries left, wait for the interval time
 
-                if total_time >= timeout:
+                if tries >= max_tries:
                     logging.debug(
-                        "info: stopping measure after: %ds timeout: %ds",
-                        total, timeout)
+                        f"info: maximum number of tries {tries} reached -"
+                        " aborting")
 
                     raise
 
 
-            # wait for the interval time
+            # we have more tries left, so wait and then retry
 
             logging.debug(
-                "info: waited so far: %ds timeout: %ds: retrying in: %ds",
-                total, timeout, interval)
+                f"info: try {tries} failed, {max_tries - tries} left; waiting "
+                f"{interval} seconds before retry")
 
             sleep(interval)
-            total_time += interval
+
 
 
 
