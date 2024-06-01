@@ -51,8 +51,11 @@ class WeatherStationNoDataError(WeatherStationError):
 
 
 def _default(s, default="--"):
-    """Returns the supplied value 's' if it is not None.  If 's' is
+    """Returns the supplied string 's' if it is not None.  If 's' is
     None, the 'default' value is returned.
+
+    It's typically used for debugging messages, to show undefined or
+    unavailable values.
     """
 
     if s is None:

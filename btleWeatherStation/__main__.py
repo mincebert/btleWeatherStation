@@ -32,7 +32,7 @@ from . import __version__, WeatherStation, scan
 #
 # strings giving the format for the weather data output
 
-DETAIL_FMT = "%s :: %8s < %8s < %8s : %6s < %6s < %6s%s"
+DETAIL_FMT = "%6s :: %8s < %8s < %8s : %6s < %6s < %6s%s"
 DISPLAY_FMT = "%6s :: %8s : %8s"
 
 
@@ -42,7 +42,7 @@ DISPLAY_FMT = "%6s :: %8s : %8s"
 
 
 def default(s, default=" -- ", fmt=None):
-    """Returns the supplied value 's' if it is not None.  If 'fmt' is
+    """Returns the supplied string 's', if it is not None.  If 'fmt' is
     not None, the string is formatted using that '%' specification.
       
     If 's' is None, the 'default' value is returned, unformatted.
