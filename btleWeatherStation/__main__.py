@@ -44,7 +44,7 @@ DISPLAY_FMT = "%6s :: %8s : %8s"
 def default(s, default=" -- ", fmt=None):
     """Returns the supplied string 's', if it is not None.  If 'fmt' is
     not None, the string is formatted using that '%' specification.
-      
+
     If 's' is None, the 'default' value is returned, unformatted.
     """
 
