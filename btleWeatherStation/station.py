@@ -76,14 +76,14 @@ class WeatherStationSensor(object):
 
     Attributes contain the various measured values:
 
-    * temp_current, temp_min, temp_max -- the current, minimum and
-        maximum temperatures in celcius
+    temp_current, temp_min, temp_max -- the current, minimum and
+    maximum temperatures in celcius
 
-    * humidity_current, humidity_min, humidity_max -- the current,
-        minimum and maximum humidities as a percentage (0-100)
+    humidity_current, humidity_min, humidity_max -- the current, minimum
+    and maximum humidities as a percentage (0-100)
 
-    * low_battery -- a boolean indicating if the sensor has a low
-        battery state
+    low_battery -- a boolean indicating if the sensor has a low battery
+    state
     """
 
     def __init__(
@@ -131,10 +131,10 @@ class WeatherStationData(object):
 
     There are two attributes:
 
-    * clock -- a datetime object containing the time set in the station
+    clock -- a datetime object containing the time set in the station
 
-    * sensors -- a dictionary, keyed on the sensor number, containing
-      WeatherStationSensor objects giving data for that sensor
+    sensors -- a dictionary, keyed on the sensor number, containing
+    WeatherStationSensor objects giving data for that sensor
     """
 
     def __init__(self, clock=None, sensors=None):
@@ -181,11 +181,6 @@ class WeatherStation(object):
         # the btle.Peripheral object for the station, set by a call to
         # _connect()
         self._station = None
-
-        # the station clock and weather data binary blobs, if received
-        # (or blank if none) - these are filled in by measure()
-        self._clock = None
-        self._sensors = {}
 
 
     def _connect(self):
@@ -367,9 +362,9 @@ class WeatherStation(object):
 
         # the display's low battery is the MSB of the first byte; each
         # sensor's low battery state is a bitfield in the sixth byte
-        return { 0 } if t[0] & 0x80 else set().union(
-                   { sensor for sensor in range(1, 4)
-                         if t[5] & (1 << (sensor - 1)) })
+        return ({ 0 } if t[0] & 0x80
+                    else set().union({ sensor for sensor in range(1, 4)
+                                           if t[5] & (1 << (sensor - 1)) }))
 
 
     def _decode_sensors_present(self, t):
