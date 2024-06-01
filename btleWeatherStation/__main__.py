@@ -32,7 +32,7 @@ from . import __version__, WeatherStation, scan
 #
 # strings giving the format for the weather data output
 
-DETAIL_FMT = "%6s :: %8s < %8s < %8s : %6s < %6s < %6s%s"
+DETAIL_FMT = "%6s :: %8s < %8s < %8s :: %4s < %4s < %4s%s"
 DISPLAY_FMT = "%6s :: %8s : %8s"
 
 
@@ -227,10 +227,10 @@ if args.raw:
 # data retrieved - print current temperatures from any present sensors
 
 if args.detail:
-    print(DETAIL_FMT % ("sensor",
-                        "min", "current temp", "max",
-                        "min", "current humidity", "max",
-                        ""))
+    print("""\
+          -------- temperature ---------    ---- humidity ----
+sensor :: min      : currrent : max      :: min  : curr : max
+""")
 
     for sensor in sorted(station_data.sensors):
         sensor_data = station_data.sensors[sensor]
@@ -249,7 +249,6 @@ if args.detail:
 
 
 # no special option supplied - just display the station data
-
 
 print(DISPLAY_FMT % ("sensor", "temp", "humidity"))
 
