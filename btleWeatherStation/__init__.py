@@ -9,7 +9,7 @@ Scan, connect and retrieve information from Oregon Scientific BtLE
 
 
 
-from .station import WeatherStation
+from .station import WeatherStation, WeatherStationData, WeatherStationSensor
 from .scan import scan
 
 
@@ -20,4 +20,6 @@ __version__ = "3.0.0"
 __all__ = [
     "scan",
     "WeatherStation",
+    "WeatherStationData",
+    "WeatherStationSensor",
 ]
