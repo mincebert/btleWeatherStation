@@ -113,13 +113,15 @@ class WeatherStationSensor(object):
         """
 
         return (
-            f"temp: { _default(self.temp_min) }"
-            f" <= { _default(self.temp_current) }"
-            f" <= { _default(self.temp_max) }"
-            f", humidity: { _default(self.humidity_min) }"
-            f" <= { _default(self.humidity_current) }"
-            f" <= { _default(self.humidity_max) }"
-            f", battery: { 'low' if self.low_battery else 'ok' }")
+            "TEMP ('C): "
+            f"min: { _default(self.temp_min) }, "
+            f"current: { _default(self.temp_current) }, "
+            f"max: { _default(self.temp_max) }; "
+            "HUMIDITY (%): "
+            f"min: { _default(self.humidity_min) }, "
+            f"current: { _default(self.humidity_current) }, "
+            f"max: { _default(self.humidity_max) }, "
+            f"BATTERY: { 'low' if self.low_battery else 'ok' }")
 
 
 
