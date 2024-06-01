@@ -20,7 +20,7 @@ import argparse
 import logging
 import sys
 
-from . import __version__, WeatherStation, scan
+from . import __version__, WeatherStation, weatherstation_scan
 
 
 
@@ -89,8 +89,8 @@ parser.add_argument(
     "-i", "--interval",
     type=int,
     default=DEFAULT_INTERVAL,
-    help="interval in seconds between retries of measure (default:"
-         f" {DEFAULT_INTERVAL})")
+    help="interval in seconds between retries of measure, or for scan"
+         f" timeout (default: {DEFAULT_INTERVAL})")
 
 parser.add_argument(
     "-t", "--tries",
@@ -150,7 +150,7 @@ if args.debug:
 if args.scan:
     # try the scan, printing an error if it fails
 
-    stations = scan(timeout=args.timeout or 2)
+    stations = weatherstation_scan(timeout=args.interval)
 
     if stations is None:
         print("error: unable to scan for weather stations (are you root?)",

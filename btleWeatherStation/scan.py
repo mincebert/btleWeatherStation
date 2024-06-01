@@ -98,7 +98,7 @@ class _WeatherStationScanDelegate(btle.DefaultDelegate):
 
 
 
-def scan(names=WEATHERSTATION_NAMES, timeout=2.0):
+def weatherstation_scan(names=WEATHERSTATION_NAMES, timeout=2.0):
     """This function scans for devices via BtLE, looking for weather
     stations.  These are identified by the GAP Complete Local Name
     (0x09) field in the scan notification - it must match one of the
